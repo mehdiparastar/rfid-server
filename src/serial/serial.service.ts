@@ -119,7 +119,7 @@ export class SerialService implements OnModuleInit {
                 0x00,
                 0xB6,
                 0x00, 0x02,
-                0x01, 0x2C, // 300 → 30.0 dBm
+                0x01, 0x2C, // 300 → 30.0 dBm 
                 0xE5,       // Checksum = (00 + B6 + 00 + 02 + 01 + 2C) = 0x1E5 → 0xE5
                 0x7E
             ]);
@@ -135,13 +135,13 @@ export class SerialService implements OnModuleInit {
                 0x27,       // Command (multi-inventory)
                 0x00, 0x03, // PL = 3
                 0x22,       // Reserved
-                0x00, 0x64, // CNT = 100 polls
-                0xB0,       // Checksum (0x00+0x27+0x00+0x03+0x22+0x00+0x64 = 0x01B0 → 0xB0)
+                0x2A, 0xF8, // CNT = 11000 polls
+                0x6E,       // Checksum (0x00+0x27+0x00+0x03+0x22+0x00+0x64 = 0x01B0 → 0xB0)
                 0x7E        // End
             ]);
             this.logger.debug(`Sending scan cmd to ${portPath}: ${scanCmd.toString('hex')}`);
             await this.writeToPort(port, scanCmd);
-            const scanResp = await this.readFromPort(port, 1000);
+            const scanResp = await this.readFromPort(port, 10000);
             this.logger.debug(`Scan cmd response from ${portPath}: ${scanResp.toString('hex')}`);
 
             this.logger.log(`Configured ${portPath} for max power continuous scan mode`);
