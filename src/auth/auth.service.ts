@@ -1,118 +1,83 @@
-import { ForbiddenException, Injectable, Logger, NotAcceptableException, UnauthorizedException } from '@nestjs/common';
-import { validateHashedData } from 'src/helperFunctions/validate-hashed-data';
-import { User } from 'src/users/entities/user.entity';
-import { UsersService } from 'src/users/users.service';
-import { config } from 'dotenv';
-import { resolve } from 'path';
-import { JwtService } from '@nestjs/jwt';
-import { IJWTTokensPair } from 'src/types/IJWTTokensPair.interface';
-import { hashData } from 'src/helperFunctions/hash-data';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import * as bcrypt from "bcryptjs";
+import * as crypto from "crypto";
+import type { Response } from "express";
+import { UsersService } from "../users/users.service";
+import { RefreshToken } from "./entities/refresh-token.entity";
+import { User } from "../users/entities/user.entity";
+import { env } from "src/config/env";
 
-const envPath = resolve(process.cwd(), `.env.${process.env.NODE_ENV}`);
-config({ path: envPath });
+const cookieBase = {
+    httpOnly: true,
+    sameSite: "lax" as const,          // CSRF-friendly for SPA
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+};
+
+function setAccessCookie(res: Response, token: string) {
+    res.cookie("access_token", token, { ...cookieBase, maxAge: Number(env("JWT_ACCESS_EXPIRATION_TIME")) }); // 10m
+}
+function setRefreshCookie(res: Response, token: string) {
+    res.cookie("refresh_token", token, { ...cookieBase, maxAge: Number(env("JWT_REFRESH_EXPIRATION_TIME")) }); // 30d
+}
+export function clearAuthCookies(res: Response) {
+    res.cookie("access_token", "", { ...cookieBase, maxAge: 0 });
+    res.cookie("refresh_token", "", { ...cookieBase, maxAge: 0 });
+}
 
 @Injectable()
 export class AuthService {
-    private readonly logger = new Logger(AuthService.name);
-
     constructor(
-        private readonly usersService: UsersService,
-        private readonly jwtService: JwtService,
+        private jwt: JwtService,
+        private users: UsersService,
+        @InjectRepository(RefreshToken) private tokensRepo: Repository<RefreshToken>,
     ) { }
 
-    async login(user: Partial<User>): Promise<IJWTTokensPair> {
-        if (user.id && user.email) {
-            const tokens = await this.getTokens(user.id, user.email);
-            await this.updateRefreshToken(user.id, tokens.refreshToken);
-            return tokens;
-        }
-        throw new UnauthorizedException('credentials invalid.')
+    async validateUser(email: string, password: string) {
+        const user = await this.users.findByEmail(email);
+        if (!user) return null;
+        const ok = await bcrypt.compare(password, user.passwordHash);
+        return ok ? user : null;
     }
 
-    async getTokens(id: number, email: string): Promise<IJWTTokensPair> {
-        const payload = { email, sub: id };
-        const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync(payload, {
-                secret: process.env.JWT_ACCESS_SECRET,
-                expiresIn: process.env.JWT_ACCESS_EXPIRATION_TIME,
-            }),
-            this.jwtService.signAsync(payload, {
-                secret: process.env.JWT_REFRESH_SECRET,
-                expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-            }),
-        ]);
-
-        return {
-            accessToken,
-            refreshToken,
-        };
-    }
-
-    async updateRefreshToken(id: number, refreshToken: string) {
-        const hashedRefreshToken = await hashData(refreshToken);
-        await this.usersService.update(id, {
-            refreshToken: hashedRefreshToken,
-        });
-    }
-
-    async localUserValidate(
-        email: string,
-        password: string,
-    ): Promise<Partial<User> | null> {
-        const [user] = await this.usersService.findByEmail(email);
-        if (!user) {
-            throw new NotAcceptableException('could not find the user');
-        }
-
-        const passwordValidation = await validateHashedData(password, user.password);
-
-        if (user && passwordValidation) {
-            const { password, ...rest } = user;
-            return rest;
-        }
-        return null;
-    }
-
-    async createNewLocalUser(
-        email: string,
-        password: string,
-        name: string,
-    ): Promise<IJWTTokensPair> {
-        // Hash password
-        const hashedPassword = await hashData(password);
-
-        // Create new User
-        const newUser = await this.usersService.createUserWithUserPass(
-            email,
-            hashedPassword,
-            name,
+    private signAccess(user: User) {
+        return this.jwt.sign(
+            { sub: String(user.id), email: user.email, roles: user.roles ?? [] },
+            { secret: process.env.JWT_ACCESS_SECRET, expiresIn: Number(env("JWT_ACCESS_EXPIRATION_TIME")) },
         );
-
-        const tokens = await this.getTokens(newUser.id, newUser.email);
-        await this.updateRefreshToken(newUser.id, tokens.refreshToken);
-        return tokens;
     }
 
-    async refreshTokens(
-        id: number,
-        refreshToken: string,
-    ): Promise<IJWTTokensPair> {
-        const user = await this.usersService.findOneById(id);
-        if (!user || !user.refreshToken)
-            throw new ForbiddenException('Access Denied');
-        const refreshTokenMatches = await validateHashedData(
-            refreshToken,
-            user.refreshToken,
+    private async signRefresh(user: User, jti: string) {
+        return this.jwt.sign(
+            { sub: String(user.id), jti },
+            { secret: process.env.JWT_REFRESH_SECRET, expiresIn: Number(env("JWT_REFRESH_EXPIRATION_TIME")) },
         );
-        if (!refreshTokenMatches) throw new ForbiddenException('Access Denied');
-        const tokens = await this.getTokens(user.id, user.email);
-        await this.updateRefreshToken(user.id, tokens.refreshToken);
-        return tokens;
     }
 
-    async logout(id: number): Promise<User> {
-        return this.usersService.update(id, {
-            refreshToken: undefined,
+    async issuePair(res: Response, user: User) {
+        const jti = crypto.randomUUID();
+        await this.tokensRepo.insert({
+            jti,
+            userId: user.id,
+            revoked: 0,
+            expiresAt: new Date(Date.now() + Number(env("JWT_REFRESH_EXPIRATION_TIME"))),
         });
+        setAccessCookie(res, this.signAccess(user));
+        setRefreshCookie(res, await this.signRefresh(user, jti));
+    }
+
+    async rotate(res: Response, payload: { sub: string; jti: string }) {
+        const row = await this.tokensRepo.findOne({ where: { jti: payload.jti } });
+        if (!row || row.revoked) throw new UnauthorizedException("Invalid refresh token");
+
+        await this.tokensRepo.update({ jti: payload.jti }, { revoked: 1 });
+
+        const user = await this.users.findById(Number(payload.sub));
+        if (!user) throw new UnauthorizedException();
+
+        await this.issuePair(res, user);
     }
 }

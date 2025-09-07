@@ -1,80 +1,49 @@
-import { Controller, Post, UseGuards, Req, Body, Get, Logger, Patch, Param, UnauthorizedException } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { LocalAuthGuard } from './local-auth.guard';
-import { IJWTTokensPair } from 'src/types/IJWTTokensPair.interface';
-import type { Request, Response } from 'express';
-import { Serialize } from 'src/interceptors/serialize.interceptor';
-import { JWTTokenDto } from 'src/users/dto/token.dto';
-import { CreateLocalUserDto } from 'src/users/dto/create-local-user.dto';
-import { AccessTokenGuard } from './accessToken.guard'
-import { UserDto } from 'src/users/dto/user.dto';
-import { RefreshTokenGuard } from './refreshToken.guard';
-import { User } from 'src/users/entities/user.entity';
-import { RolesGuard } from 'src/authorization/roles.guard';
-import { UserRoles } from 'src/enum/userRoles.enum';
-import { Roles } from 'src/authorization/roles.decorator';
-import { ApproveUserRolesDto } from 'src/users/dto/approve-user-roles.dto';
-import { UsersService } from 'src/users/users.service';
+import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
+import type { Response } from 'express';
+import { AuthService, clearAuthCookies } from "./auth.service";
+import { JwtAccessGuard } from "./guards/jwt-access.guard";
+import { JwtRefreshGuard } from "./guards/jwt-refresh.guard";
 
-
-@Controller('api/auth')
+@Controller("auth")
 export class AuthController {
-    private readonly logger = new Logger(AuthController.name);
+    constructor(private auth: AuthService) { }
 
-    constructor(
-        private readonly authService: AuthService,
-        private readonly usersService: UsersService,
-    ) { }
-
-    @Post('login')
-    @UseGuards(LocalAuthGuard)
-    @Serialize(JWTTokenDto)
-    async login(@Req() req: Request): Promise<IJWTTokensPair> {
-        if (req.user)
-            return this.authService.login(req.user);
-        throw new UnauthorizedException('credentials invalid')
+    @Post("login")
+    async login(@Body() dto: { email: string; password: string }, @Res({ passthrough: true }) res: Response) {
+        const user = await this.auth.validateUser(dto.email, dto.password);
+        if (!user) throw new UnauthorizedException("Invalid credentials");
+        await this.auth.issuePair(res, user);
+        return { user: { id: user.id, email: user.email, roles: user.roles ?? [] } };
     }
 
-    @Post('local-create')
-    @Serialize(JWTTokenDto)
-    async create(@Body() body: CreateLocalUserDto): Promise<IJWTTokensPair> {
-        return this.authService.createNewLocalUser(
-            body.email,
-            body.password,
-            body.name,
-        );
+    @UseGuards(JwtRefreshGuard)
+    @Post("refresh")
+    async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+        await this.auth.rotate(res, req.user); // { sub, jti }
+        return { ok: true };
     }
 
-    @Get('profile')
-    @UseGuards(AccessTokenGuard)
-    @Serialize(UserDto)
-    getProfile(@Req() req: Request) {
-        return req.user;
+    @Post("logout")
+    async logout(@Res({ passthrough: true }) res: Response) {
+        clearAuthCookies(res);
+        return { ok: true };
     }
 
-    @Get('refresh')
-    @UseGuards(RefreshTokenGuard)
-    refreshTokens(@Req() req: Request): Promise<IJWTTokensPair> {
-        const id = (req.user as User).id;
-        const refreshToken = (req.user as User).refreshToken;
-        return this.authService.refreshTokens(id, refreshToken);
+    @UseGuards(JwtAccessGuard)
+    @Get("me")
+    me(@Req() req: any) {
+        const u = req.user;
+        return { user: { id: u.sub, email: u.email, roles: u.roles ?? [] } };
     }
 
-    @Get('logout')
-    @UseGuards(AccessTokenGuard)
-    @Serialize(UserDto)
-    logout(@Req() req: Request): Promise<User> {
-        return this.authService.logout((req.user as User).id);
-    }
-
-    @Patch('change-user-roles/:id')
-    @UseGuards(AccessTokenGuard, RolesGuard)
-    @Roles(UserRoles.superUser, UserRoles.admin)
-    @Serialize(UserDto)
-    approveUserRoles(
-        @Param('id') id: string,
-        @Body() body: ApproveUserRolesDto,
-    ): Promise<User> {
-        return this.usersService.changeUserRoles(parseInt(id), body);
-    }
+    // @Patch('change-user-roles/:id')
+    // @UseGuards(AccessTokenGuard, RolesGuard)
+    // @Roles(UserRoles.superUser, UserRoles.admin)
+    // @Serialize(UserDto)
+    // approveUserRoles(
+    //     @Param('id') id: string,
+    //     @Body() body: ApproveUserRolesDto,
+    // ): Promise<User> {
+    //     return this.usersService.changeUserRoles(parseInt(id), body);
+    // }
 }

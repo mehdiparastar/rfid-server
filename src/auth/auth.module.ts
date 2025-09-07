@@ -1,15 +1,20 @@
-import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { UsersModule } from 'src/users/users.module';
-import { AuthController } from './auth.controller';
-import { JwtModule } from '@nestjs/jwt';
-import { LocalStrategy } from './local.strategy';
-import { AccessTokenStrategy } from './accessToken.strategy';
-import { RefreshTokenStrategy } from './refreshToken.strategy';
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { JwtModule } from "@nestjs/jwt";
+import { UsersModule } from "../users/users.module";
+import { RefreshToken } from "./entities/refresh-token.entity";
+import { AuthController } from "./auth.controller";
+import { AuthService } from "./auth.service";
+import { JwtAccessStrategy } from "./strategies/jwt-access.strategy";
+import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
 
 @Module({
-  imports: [JwtModule, UsersModule],
-  providers: [AuthService, LocalStrategy, AccessTokenStrategy, RefreshTokenStrategy],
-  controllers: [AuthController]
+  imports: [
+    UsersModule,
+    TypeOrmModule.forFeature([RefreshToken]),
+    JwtModule.register({}), // secrets passed explicitly in service calls
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtAccessStrategy, JwtRefreshStrategy],
 })
 export class AuthModule { }

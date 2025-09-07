@@ -5,18 +5,12 @@ export class User {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
     @Index({ unique: true })
+    @Column({ type: "varchar", length: 190 })
     email: string;
-
-    @Column({ nullable: false })
-    name: string;
-
-    @Column({ nullable: false })
-    password: string;
-
-    @Column({ nullable: true })
-    refreshToken: string;
+    
+    @Column({ type: "varchar", length: 255 })
+    passwordHash: string;
 
     @Column('simple-array', { nullable: false })
     roles: string[];

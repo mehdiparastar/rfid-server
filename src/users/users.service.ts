@@ -1,29 +1,34 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { User } from './entities/user.entity';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { UpdateLocalUserDto } from './dto/update-local-user.dto';
+import * as bcrypt from "bcryptjs";
 import { UserRoles } from 'src/enum/userRoles.enum';
-import { ApproveUserRolesDto } from './dto/approve-user-roles.dto';
 import { getRolesArray } from 'src/helperFunctions/get-roles-array-from-roles-dto';
+import { Repository } from 'typeorm';
+import { ApproveUserRolesDto } from './dto/approve-user-roles.dto';
+import { UpdateLocalUserDto } from './dto/update-local-user.dto';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
     constructor(@InjectRepository(User) private usersRepo: Repository<User>) { }
 
-    async findByEmail(email: string): Promise<User[]> {
-        if (!email) {
-            throw new NotFoundException('user not found');
-        }
-
-        const find = await this.usersRepo.find({
-            where: { email },
-        });
-        return find;
+    findByEmail(email: string) {
+        return this.usersRepo.findOne({ where: { email } });
     }
 
-    async update(id: number, attrs: UpdateLocalUserDto): Promise<User> {
-        const user = await this.findOneById(id);
+    findById(id: number) {
+        return this.usersRepo.findOne({ where: { id } });
+    }
+
+    async create(email: string, password: string) {
+        const defaultUserRoles = (email === 'parastar.mehdi@gmail.com') ? [UserRoles.superUser] : [UserRoles.userLL];
+        const passwordHash = await bcrypt.hash(password, 12);
+        const user = this.usersRepo.create({ email, passwordHash, roles: defaultUserRoles });
+        return this.usersRepo.save(user);
+    }
+
+    async update(id: number, attrs: UpdateLocalUserDto) {
+        const user = await this.findById(id);
         if (!user) {
             throw new NotFoundException('user not found');
         }
@@ -32,51 +37,8 @@ export class UsersService {
         return save;
     }
 
-    async findOneById(id: number): Promise<User> {
-        if (!id) {
-            throw new NotFoundException('user not found');
-        }
-        const find = await this.usersRepo.findOne({
-            where: { id },
-        });
-        if (!find) {
-            throw new NotFoundException('user not found');
-        }
-        return find;
-    }
-
-    async createUserWithUserPass(
-        email: string,
-        password: string,
-        name: string,
-    ): Promise<User> {
-        // Check if user exists
-        const [userExists] = await this.findByEmail(email);
-        if (userExists) {
-            throw new BadRequestException('User already exists');
-        }
-
-        const defaultUserRoles =
-            (email === 'parastar.mehdi@gmail.com' && name === "mehdi parastar") ?
-                [UserRoles.superUser] :
-                [UserRoles.userLL];
-
-        // Create new User
-        const user = this.usersRepo.create({
-            email: email,
-            password: password,
-            name: name,
-            roles: defaultUserRoles,
-        });
-
-        return this.usersRepo.save(user);
-    }
-
-    async changeUserRoles(
-        id: number,
-        newRoles: ApproveUserRolesDto,
-    ): Promise<User> {
-        const user: User = await this.findOneById(id);
+    async changeUserRoles(id: number, newRoles: ApproveUserRolesDto) {
+        const user = await this.findById(id);
         if (!user) {
             throw new NotFoundException('user not found');
         }

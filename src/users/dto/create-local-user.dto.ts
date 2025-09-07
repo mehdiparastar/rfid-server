@@ -6,7 +6,4 @@ export class CreateLocalUserDto {
 
     @IsString()
     password: string;
-
-    @IsString()
-    name: string;
 }

@@ -13,7 +13,7 @@ export class Product {
     tags: Tag[];
 
     @CreateDateColumn()
-    created_at: Date;
+    createdAt: Date;
 
     @UpdateDateColumn()
     updatedAt?: Date;

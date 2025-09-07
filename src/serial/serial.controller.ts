@@ -1,6 +1,6 @@
 import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { SerialService } from './serial.service';
-import { AccessTokenGuard } from 'src/auth/accessToken.guard';
+import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
 import { RolesGuard } from 'src/authorization/roles.guard';
 import { Roles } from 'src/authorization/roles.decorator';
 import { UserRoles } from 'src/enum/userRoles.enum';
@@ -15,7 +15,7 @@ export class SerialController {
     }
 
     @Post('reinit')
-    @UseGuards(AccessTokenGuard, RolesGuard)
+    @UseGuards(JwtAccessGuard, RolesGuard)
     @Roles(UserRoles.userFL)
     reinit() {
         return this.serialService.reinitPorts();
