@@ -3,13 +3,28 @@ import type { Response } from 'express';
 import { AuthService, clearAuthCookies } from "./auth.service";
 import { JwtAccessGuard } from "./guards/jwt-access.guard";
 import { JwtRefreshGuard } from "./guards/jwt-refresh.guard";
+import { RegisterDto } from "./dto/register.dto";
+import { UsersService } from "src/users/users.service";
+import { LoginDto } from "./dto/login.dto";
 
 @Controller("auth")
 export class AuthController {
-    constructor(private auth: AuthService) { }
+    constructor(private auth: AuthService, private users: UsersService,) { }
+
+
+    @Post("register")
+    async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+        // Decide the default role for self-registered users:
+        const user = await this.users.create(dto.email, dto.password);
+
+        // Optional: auto-login right after register
+        await this.auth.issuePair(res, user);
+
+        return { user: { id: user.id, email: user.email, roles: user.roles ?? [] } };
+    }
 
     @Post("login")
-    async login(@Body() dto: { email: string; password: string }, @Res({ passthrough: true }) res: Response) {
+    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
         const user = await this.auth.validateUser(dto.email, dto.password);
         if (!user) throw new UnauthorizedException("Invalid credentials");
         await this.auth.issuePair(res, user);
@@ -35,15 +50,4 @@ export class AuthController {
         const u = req.user;
         return { user: { id: u.sub, email: u.email, roles: u.roles ?? [] } };
     }
-
-    // @Patch('change-user-roles/:id')
-    // @UseGuards(AccessTokenGuard, RolesGuard)
-    // @Roles(UserRoles.superUser, UserRoles.admin)
-    // @Serialize(UserDto)
-    // approveUserRoles(
-    //     @Param('id') id: string,
-    //     @Body() body: ApproveUserRolesDto,
-    // ): Promise<User> {
-    //     return this.usersService.changeUserRoles(parseInt(id), body);
-    // }
 }

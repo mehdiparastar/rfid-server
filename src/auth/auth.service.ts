@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -76,7 +76,7 @@ export class AuthService {
         await this.tokensRepo.update({ jti: payload.jti }, { revoked: 1 });
 
         const user = await this.users.findById(Number(payload.sub));
-        if (!user) throw new UnauthorizedException();
+        if (!user) throw new NotFoundException("User not found");
 
         await this.issuePair(res, user);
     }

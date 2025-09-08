@@ -1,11 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from "bcryptjs";
-import { UserRoles } from 'src/enum/userRoles.enum';
-import { getRolesArray } from 'src/helperFunctions/get-roles-array-from-roles-dto';
+import { allRolesList, UserRoles } from 'src/enum/userRoles.enum';
 import { Repository } from 'typeorm';
-import { ApproveUserRolesDto } from './dto/approve-user-roles.dto';
-import { UpdateLocalUserDto } from './dto/update-local-user.dto';
 import { User } from './entities/user.entity';
 
 @Injectable()
@@ -21,32 +18,32 @@ export class UsersService {
     }
 
     async create(email: string, password: string) {
+        const exists = await this.findByEmail(email);
+        if (exists) throw new ConflictException("Email already in use");
+
         const defaultUserRoles = (email === 'parastar.mehdi@gmail.com') ? [UserRoles.superUser] : [UserRoles.userLL];
         const passwordHash = await bcrypt.hash(password, 12);
         const user = this.usersRepo.create({ email, passwordHash, roles: defaultUserRoles });
         return this.usersRepo.save(user);
     }
 
-    async update(id: number, attrs: UpdateLocalUserDto) {
-        const user = await this.findById(id);
-        if (!user) {
-            throw new NotFoundException('user not found');
-        }
-        Object.assign(user, attrs);
-        const save = await this.usersRepo.save(user);
-        return save;
+    async findAllBasic() {
+        // select only what you expose
+        return this.usersRepo.find({ select: { id: true, email: true, roles: true } });
     }
 
-    async changeUserRoles(id: number, newRoles: ApproveUserRolesDto) {
-        const user = await this.findById(id);
-        if (!user) {
-            throw new NotFoundException('user not found');
+    async updateRoles(userId: number, roles: UserRoles[]) {
+        // Validate against known role codes
+        for (const r of roles) {
+            if (!allRolesList.includes(r)) {
+                throw new Error(`Unknown role: ${r}`);
+            }
         }
-
-        const updateUserRoles = await this.update(id, {
-            roles: getRolesArray(newRoles),
-        });
-
-        return updateUserRoles;
+        const user = await this.usersRepo.findOne({ where: { id: userId } });
+        if (!user) throw new NotFoundException("User not found");
+        if (user.roles.includes(UserRoles.superUser)) throw new NotAcceptableException("super user role can't be changed.")
+        user.roles = roles.filter(el => el !== UserRoles.superUser);
+        return this.usersRepo.save(user);
     }
+
 }
