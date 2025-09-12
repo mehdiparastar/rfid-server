@@ -1,14 +1,14 @@
-import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 import type { Response } from "express";
+import { env } from "src/config/env";
+import { Repository } from "typeorm";
+import { User } from "../users/entities/user.entity";
 import { UsersService } from "../users/users.service";
 import { RefreshToken } from "./entities/refresh-token.entity";
-import { User } from "../users/entities/user.entity";
-import { env } from "src/config/env";
 
 const cookieBase = {
     httpOnly: true,
@@ -36,6 +36,8 @@ export class AuthService {
         @InjectRepository(RefreshToken) private tokensRepo: Repository<RefreshToken>,
     ) { }
 
+    private readonly logger = new Logger(AuthService.name);
+
     async validateUser(email: string, password: string) {
         const user = await this.users.findByEmail(email);
         if (!user) return null;
@@ -44,20 +46,21 @@ export class AuthService {
     }
 
     private signAccess(user: User) {
+        this.logger.warn(Number(env("JWT_ACCESS_EXPIRATION_TIME")))
         return this.jwt.sign(
             { sub: String(user.id), email: user.email, roles: user.roles ?? [] },
-            { secret: process.env.JWT_ACCESS_SECRET, expiresIn: Number(env("JWT_ACCESS_EXPIRATION_TIME")) },
+            { secret: process.env.JWT_ACCESS_SECRET, expiresIn: Number(env("JWT_ACCESS_EXPIRATION_TIME")) / 1000 },
         );
     }
 
     private async signRefresh(user: User, jti: string) {
         return this.jwt.sign(
             { sub: String(user.id), jti },
-            { secret: process.env.JWT_REFRESH_SECRET, expiresIn: Number(env("JWT_REFRESH_EXPIRATION_TIME")) },
+            { secret: process.env.JWT_REFRESH_SECRET, expiresIn: Number(env("JWT_REFRESH_EXPIRATION_TIME")) / 1000 },
         );
     }
 
-    async issuePair(res: Response, user: User) {
+    async issuePair(res: Response | null, user: User) {
         const jti = crypto.randomUUID();
         await this.tokensRepo.insert({
             jti,
@@ -65,8 +68,16 @@ export class AuthService {
             revoked: 0,
             expiresAt: new Date(Date.now() + Number(env("JWT_REFRESH_EXPIRATION_TIME"))),
         });
-        setAccessCookie(res, this.signAccess(user));
-        setRefreshCookie(res, await this.signRefresh(user, jti));
+        const accessToken = this.signAccess(user);
+        const refreshToken = await this.signRefresh(user, jti);
+
+        if (res) {
+            setAccessCookie(res, accessToken);
+            setRefreshCookie(res, refreshToken);
+            return;
+        }
+
+        return { accessToken, refreshToken };
     }
 
     async rotate(res: Response, payload: { sub: string; jti: string }) {

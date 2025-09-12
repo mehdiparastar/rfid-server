@@ -6,14 +6,14 @@ import { env, loadEnv } from "./config/env";
 
 async function bootstrap() {
   loadEnv(); // <- load dotenv before creating app
+  const isProd = env("NODE_ENV") === 'production';
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { logger: isProd ? false : ['error', 'warn', 'log', 'debug', 'verbose'] });
 
   app.setGlobalPrefix('api'); // so /api/auth/* matches frontend
 
   app.enableCors({
-    origin: "*",
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+    origin: ['http://127.0.0.1:1252', 'http://localhost:1252'],
     credentials: true, // Allow sending cookies from the client
   });
 

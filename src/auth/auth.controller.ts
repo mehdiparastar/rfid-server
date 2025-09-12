@@ -9,7 +9,7 @@ import { LoginDto } from "./dto/login.dto";
 
 @Controller("auth")
 export class AuthController {
-    constructor(private auth: AuthService, private users: UsersService,) { }
+    constructor(private authService: AuthService, private users: UsersService,) { }
 
 
     @Post("register")
@@ -18,23 +18,23 @@ export class AuthController {
         const user = await this.users.create(dto.email, dto.password);
 
         // Optional: auto-login right after register
-        await this.auth.issuePair(res, user);
+        await this.authService.issuePair(res, user);
 
         return { user: { id: user.id, email: user.email, roles: user.roles ?? [] } };
     }
 
     @Post("login")
     async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-        const user = await this.auth.validateUser(dto.email, dto.password);
+        const user = await this.authService.validateUser(dto.email, dto.password);
         if (!user) throw new UnauthorizedException("Invalid credentials");
-        await this.auth.issuePair(res, user);
+        await this.authService.issuePair(res, user);
         return { user: { id: user.id, email: user.email, roles: user.roles ?? [] } };
     }
 
     @UseGuards(JwtRefreshGuard)
     @Post("refresh")
     async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-        await this.auth.rotate(res, req.user); // { sub, jti }
+        await this.authService.rotate(res, req.user); // { sub, jti }
         return { ok: true };
     }
 

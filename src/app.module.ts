@@ -8,12 +8,14 @@ import { ProductsModule } from './products/products.module';
 import { SerialModule } from './serial/serial.module';
 import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
+import { SocketModule } from './socket/socket.module';
 
 @Module({
   imports: [
     DatabaseModule,  // <- configure DB first
     UsersModule,
     AuthModule,
+    SocketModule,
 
     TagsModule,
     ProductsModule,
