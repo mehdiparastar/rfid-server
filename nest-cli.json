@@ -9,6 +9,7 @@
         "outDir": "./"
       }
     ],
+    "watchAssets": true,
     "deleteOutDir": true
   }
 }
