@@ -69,6 +69,7 @@ $ sudo mkdir -p /opt/rfid
 $ sudo chown -R $USER:$USER /opt/rfid
 $ cd /opt/rfid
 $ git clone https://github.com/mehdiparastar/rfid-server.git
+$ sudo chown -R $USER:$USER /opt/rfid/rfid-server
 $ cd rfid-server
 $ npm ci
 $ ./src/database/prod-mariadb-setup.sh
