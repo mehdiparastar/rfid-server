@@ -13,7 +13,7 @@ import { RefreshToken } from "./entities/refresh-token.entity";
 const cookieBase = {
     httpOnly: true,
     sameSite: "lax" as const,          // CSRF-friendly for SPA
-    secure: process.env.NODE_ENV === "production",
+    secure: false, //process.env.NODE_ENV === "production",
     path: "/",
 };
 
