@@ -64,8 +64,19 @@ When you're ready to deploy your NestJS application to production, there are som
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+$ nvm use 22
+$ sudo mkdir -p /opt/rfid
+$ sudo chown -R $USER:$USER /opt/rfid
+$ cd /opt/rfid
+$ git clone https://github.com/mehdiparastar/rfid-server.git
+$ cd rfid-server
+$ npm ci
+$ ./src/database/prod-mariadb-setup.sh
+$ npm run build
+$ pm2 start ecosystem.config.js
+$ pm2 save  # Persist on reboot
+$ pm2 startup  # Follow instructions for boot integration
+$ pm2 status  # You should see list of active rfid-backend process
 ```
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
