@@ -19,7 +19,7 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  await app.listen(env("SERVER_PORT") || 3210, async () => {
+  await app.listen(env("SERVER_PORT") || 7219, isProd ? '127.0.0.1' : '0.0.0.0', async () => {
     console.log(`RFID app is running on: ${await app.getUrl()}`, env("NODE_ENV"));
   });
 
