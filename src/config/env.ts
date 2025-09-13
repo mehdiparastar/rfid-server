@@ -3,6 +3,7 @@ import * as path from "path";
 import { config } from "dotenv";
 
 export function loadEnv() {
+    console.log("starting server on path: ", process.cwd(), ` in '${process.env.NODE_ENV}' environment.`)
     const nodeEnv = process.env.NODE_ENV || "development"; // "development" | "production" | "test"
     const file = `.env.${nodeEnv}`;
     config({ path: path.resolve(process.cwd(), file) });

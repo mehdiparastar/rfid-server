@@ -11,16 +11,19 @@ config({ path: envPath });
 @Module({
     imports: [
         TypeOrmModule.forRootAsync({
-            useFactory: () => ({
-                type: 'mariadb',
-                host: env("MYSQL_ROOT_HOST"),
-                port: Number(env("DB_PORT")),
-                username: env("MYSQL_USER"),
-                password: env("MYSQL_PASSWORD"),
-                database: env("MYSQL_DATABASE"),
-                autoLoadEntities: true,
-                synchronize: true,
-            })
+            useFactory: () => {
+                console.log("environment is", env("NODE_ENV"), "in connecting to DB.")
+                return ({
+                    type: 'mariadb',
+                    host: env("MYSQL_ROOT_HOST"),
+                    port: Number(env("DB_PORT")),
+                    username: env("MYSQL_USER"),
+                    password: env("MYSQL_PASSWORD"),
+                    database: env("MYSQL_DATABASE"),
+                    autoLoadEntities: true,
+                    synchronize: true,
+                })
+            }
         })
     ],
     exports: [TypeOrmModule],

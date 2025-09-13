@@ -1,13 +1,9 @@
 module.exports = {
     apps: [{
         name: 'rfid-backend',
-        script: 'dist/main.js',
+        script: 'npm run start:prod',
         instances: 1,
-        exec_mode: 'fork',
-        env_production: {
-            NODE_ENV: 'production',
-            ...require('./.env.production')  // Loads your env
-        },
+        exec_mode: 'fork',       
         autorestart: true,
         watch: false,
         max_memory_restart: '1G',

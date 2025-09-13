@@ -7,8 +7,8 @@ import { env, loadEnv } from "./config/env";
 async function bootstrap() {
   loadEnv(); // <- load dotenv before creating app
   const isProd = env("NODE_ENV") === 'production';
-
-  const app = await NestFactory.create(AppModule, { logger: isProd ? false : ['error', 'warn', 'log', 'debug', 'verbose'] });
+  console.log("isProd", isProd)
+  const app = await NestFactory.create(AppModule, { logger: isProd ? ['error'] : ['error', 'warn', 'log', 'debug', 'verbose'] });
 
   app.setGlobalPrefix('api'); // so /api/auth/* matches frontend
 
