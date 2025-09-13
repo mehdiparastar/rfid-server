@@ -74,6 +74,7 @@ $ cd rfid-server
 $ npm ci
 $ ./src/database/prod-mariadb-setup.sh
 $ npm run build
+$ NODE_OPTIONS="--max-old-space-size=512" npm run build  # if you have memory limitation
 $ pm2 start ecosystem.config.js
 $ pm2 save  # Persist on reboot
 $ pm2 startup  # Follow instructions for boot integration
