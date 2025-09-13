@@ -11,7 +11,7 @@ import { extractTokenFromCookie, WsJwtAccessGuard } from './ws-jwt-access.guard'
 @Injectable()
 @WebSocketGateway({
   cors: {
-    origin: ['http://127.0.0.1:1252', 'http://localhost:1252'],
+    origin: ['http://127.0.0.1:1252', 'http://localhost:1252','http://127.0.0.1', 'http://localhost'],
     credentials: true,
   },
 })
