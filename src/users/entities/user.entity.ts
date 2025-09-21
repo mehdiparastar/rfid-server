@@ -1,6 +1,10 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Customer } from "src/customers/entities/customer.entity";
+import { Product } from "src/products/entities/product.entity";
+import { Sale } from "src/sales/entities/sale.entity";
+import { Tag } from "src/tags/entities/tag.entity";
+import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('users')
 export class User {
     @PrimaryGeneratedColumn()
     id: number;
@@ -8,7 +12,7 @@ export class User {
     @Index({ unique: true })
     @Column({ type: "varchar", length: 190 })
     email: string;
-    
+
     @Column({ type: "varchar", length: 255 })
     passwordHash: string;
 
@@ -20,4 +24,16 @@ export class User {
 
     @UpdateDateColumn()
     updatedAt?: Date;
+
+    @OneToMany(() => Tag, tag => tag.createdBy)
+    tags: Tag[];
+
+    @OneToMany(() => Product, product => product.createdBy)
+    products: Product[];
+
+    @OneToMany(() => Customer, customer => customer.createdBy)
+    customers: Customer[];
+
+    @OneToMany(() => Sale, sale => sale.createdBy)
+    sales: Sale[];
 }

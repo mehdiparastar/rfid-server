@@ -1,17 +1,25 @@
 import { Module, ValidationPipe } from '@nestjs/common';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { APP_PIPE } from '@nestjs/core';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { CustomersModule } from './customers/customers.module';
 import { DatabaseModule } from './database/database.module';
 import { ProductsModule } from './products/products.module';
+import { SalesModule } from './sales/sales.module';
 import { SerialModule } from './serial/serial.module';
+import { SocketModule } from './socket/socket.module';
 import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
-import { SocketModule } from './socket/socket.module';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/api/uploads', // add `/api` prefix
+    }),
     DatabaseModule,  // <- configure DB first
     UsersModule,
     AuthModule,
@@ -20,6 +28,8 @@ import { SocketModule } from './socket/socket.module';
     TagsModule,
     ProductsModule,
     SerialModule,
+    CustomersModule,
+    SalesModule,
   ],
   controllers: [AppController],
   providers: [

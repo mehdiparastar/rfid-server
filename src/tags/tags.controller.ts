@@ -5,7 +5,7 @@ import { UpdateTagDto } from './dto/update-tag.dto';
 
 @Controller('tags')
 export class TagsController {
-  constructor(private readonly tagsService: TagsService) {}
+  constructor(private readonly tagsService: TagsService) { }
 
   @Post()
   create(@Body() createTagDto: CreateTagDto) {
@@ -19,7 +19,7 @@ export class TagsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.tagsService.findOne(+id);
+    return this.tagsService.findOne({ where: { id: +id } });
   }
 
   @Patch(':id')

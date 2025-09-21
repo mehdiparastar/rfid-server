@@ -4,7 +4,8 @@ import type { JwtAccessPayload } from "./jwt.types";
 export const CurrentUser = createParamDecorator(
     (_data: unknown, ctx: ExecutionContext): JwtAccessPayload | undefined => {
         const req = ctx.switchToHttp().getRequest();
-        return req.user as JwtAccessPayload | undefined;
+        return { ...req.user, id: req.user.sub } as JwtAccessPayload & { id: number } | undefined;
+
     },
 );
 

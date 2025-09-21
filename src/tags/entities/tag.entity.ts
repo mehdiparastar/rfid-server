@@ -1,28 +1,27 @@
 import { Product } from 'src/products/entities/product.entity';
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
+import { User } from 'src/users/entities/user.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, PrimaryColumn, Index, JoinColumn, ManyToMany } from 'typeorm';
 
 @Entity('tags')
 export class Tag {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ unique: true })
-    epc: string;
+    @Column('varchar', { length: 255, nullable: false, unique: true })
+    epc: string;  // RFID EPC
 
-    @Column({ nullable: true })
-    rssi: number;
+    @Column('decimal', { precision: 10, scale: 2, nullable: false })
+    rssi: number;  // RSSI value (signal strength)
 
-    @Column({ nullable: true })
-    pc: string;
+    @ManyToMany(() => Product, product => product.tags)
+    products: Product[];
 
-    @Column()
-    module: string;  // /dev/ttyUSBx
-
-    @ManyToOne(() => Product, product => product.tags, { nullable: true })
-    product: Product;
+    @ManyToOne(() => User, user => user.tags)  // Relation with users table
+    @JoinColumn({ name: 'userId' })
+    createdBy: User;
 
     @CreateDateColumn()
-    created_at: Date;
+    createdAt?: Date;
 
     @UpdateDateColumn()
     updatedAt?: Date;

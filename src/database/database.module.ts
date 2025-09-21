@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { config } from 'dotenv';
-import { resolve } from 'path';
+import { RefreshToken } from 'src/auth/entities/refresh-token.entity';
 import { env } from 'src/config/env';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { Product } from 'src/products/entities/product.entity';
+import { Sale } from 'src/sales/entities/sale.entity';
+import { Tag } from 'src/tags/entities/tag.entity';
+import { User } from 'src/users/entities/user.entity';
 import { DataSource } from 'typeorm';
-
-const envPath = resolve(process.cwd(), `.env.${process.env.NODE_ENV}`);
-config({ path: envPath });
 
 @Module({
     imports: [
@@ -20,8 +21,10 @@ config({ path: envPath });
                     username: env("MYSQL_USER"),
                     password: env("MYSQL_PASSWORD"),
                     database: env("MYSQL_DATABASE"),
-                    autoLoadEntities: true,
+                    entities: [RefreshToken, User, Product, Tag, Customer, Sale],
+                    // autoLoadEntities: true,
                     synchronize: true,
+                    // logging: env("NODE_ENV") === 'development'
                 })
             }
         })
