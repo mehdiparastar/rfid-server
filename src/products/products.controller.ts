@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseArrayPipe, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
@@ -68,12 +68,18 @@ export class ProductsController {
     });
   }
 
-  @Get(':id')
-  async getProductById(@Param('id') id: string) {
-    const [product] = await this.productsService.getProductById(id);
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-    return product;
+  @Get()
+  async getProductsByIds(
+    @Query('ids', new ParseArrayPipe({ items: Number, separator: ',' })) ids: number[],
+  ) {
+    if (!ids?.length) throw new BadRequestException('ids is required');
+    if (ids.length > 100) throw new BadRequestException('Max 100 ids');
+
+    // de-dup
+    ids = Array.from(new Set(ids));
+
+    const products = await this.productsService.getProductsByIds(ids); // SELECT ... WHERE id IN (...)
+    return products;
   }
+
 }

@@ -4,7 +4,8 @@ import { RefreshToken } from 'src/auth/entities/refresh-token.entity';
 import { env } from 'src/config/env';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { Product } from 'src/products/entities/product.entity';
-import { Sale } from 'src/sales/entities/sale.entity';
+import { Invoice } from 'src/sales/entities/invoice.entity';
+import { SaleItem } from 'src/sales/entities/sale-item.entity';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { User } from 'src/users/entities/user.entity';
 import { DataSource } from 'typeorm';
@@ -21,7 +22,7 @@ import { DataSource } from 'typeorm';
                     username: env("MYSQL_USER"),
                     password: env("MYSQL_PASSWORD"),
                     database: env("MYSQL_DATABASE"),
-                    entities: [RefreshToken, User, Product, Tag, Customer, Sale],
+                    entities: [RefreshToken, User, Product, Tag, Customer, SaleItem, Invoice],
                     // autoLoadEntities: true,
                     synchronize: true,
                     // logging: env("NODE_ENV") === 'development'

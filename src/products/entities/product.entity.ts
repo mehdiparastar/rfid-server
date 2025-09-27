@@ -1,9 +1,10 @@
-import { Sale } from "src/sales/entities/sale.entity";
+import { SaleItem } from "src/sales/entities/sale-item.entity";
 import { Tag } from "src/tags/entities/tag.entity";
 import { User } from "src/users/entities/user.entity";
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { GOLD_PRODUCT_TYPES } from "../dto/create-product.dto";
-import { type GoldProductType } from "../dto/create-product.dto";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { GOLD_PRODUCT_SUB_TYPES, GOLD_PRODUCT_TYPES, type GoldProductSUBType, type GoldProductType } from "../dto/create-product.dto";
+
+const goldSubTypes = []
 
 @Entity('products')
 export class Product {
@@ -25,6 +26,12 @@ export class Product {
     @Column({ type: 'enum', enum: GOLD_PRODUCT_TYPES, nullable: false })
     type: GoldProductType;
 
+    @Column({ type: 'enum', enum: GOLD_PRODUCT_SUB_TYPES.map(el => el.symbol), nullable: false })
+    subType: GoldProductSUBType;
+
+    @Column({ type: 'boolean', nullable: false })
+    inventoryItem: boolean
+
     @ManyToOne(() => User, user => user.products)  // Relation with users table
     @JoinColumn({ name: 'userId' })
     createdBy: User;
@@ -32,22 +39,21 @@ export class Product {
     @Column('int', { nullable: false, default: 1 })
     quantity: number;  // Available quantity of the product
 
-    @Column('decimal', { precision: 10, scale: 2, nullable: false })
-    makingCharge: number;  // Charge for making the product
+    @Column('tinyint', { unsigned: true, width: 3, default: 0, nullable: false })
+    makingCharge: number; // 0..255; Charge for making the product
 
-    @Column('decimal', { precision: 10, scale: 2, nullable: false })
+    @Column('tinyint', { unsigned: true, width: 3, default: 10, nullable: false })
     vat: number;  // vat for making the product
 
-    @Column('decimal', { precision: 10, scale: 2, nullable: false })
+    @Column('tinyint', { unsigned: true, width: 3, default: 7, nullable: false })
     profit: number;  // profit for making the product
 
     @ManyToMany(() => Tag, tag => tag.products)  // Many-to-many relation with tags
     @JoinTable()  // Junction table for many-to-many
     tags: Tag[];
 
-    // Add this relation to define the reverse relationship with Sale
-    @OneToMany(() => Sale, sale => sale.product)
-    sales: Sale[];
+    @OneToMany(() => SaleItem, saleItem => saleItem.product)
+    saleItems: SaleItem[];
 
     @CreateDateColumn()
     createdAt?: Date;

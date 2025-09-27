@@ -1,15 +1,19 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
+import { CurrentUser } from 'src/auth/current-user.decorator';
+import { User } from 'src/users/entities/user.entity';
+import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
 
 @Controller('sales')
 export class SalesController {
-  constructor(private readonly salesService: SalesService) {}
+  constructor(private readonly salesService: SalesService) { }
 
   @Post()
-  create(@Body() createSaleDto: CreateSaleDto) {
-    return this.salesService.create(createSaleDto);
+  @UseGuards(JwtAccessGuard) // Protect with auth
+  create(@Body() createSaleDto: CreateSaleDto, @CurrentUser() user: Partial<User>) {
+    return this.salesService.create(createSaleDto, user);
   }
 
   @Get()

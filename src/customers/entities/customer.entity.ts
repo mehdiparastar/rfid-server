@@ -1,4 +1,4 @@
-import { Sale } from "src/sales/entities/sale.entity";
+import { Invoice } from "src/sales/entities/invoice.entity";
 import { User } from "src/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
@@ -16,8 +16,8 @@ export class Customer {
     @Column('varchar', { length: 20, nullable: false })
     nid: string;  // National ID
 
-    @OneToMany(() => Sale, sale => sale.customer)
-    sales: Sale[];
+    @OneToMany(() => Invoice, invoice => invoice.customer)
+    invoices: Invoice[];
 
     @ManyToOne(() => User, user => user.customers)  // Relation with users table
     @JoinColumn({ name: 'userId' })

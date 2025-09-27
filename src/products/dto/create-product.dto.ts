@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsNumber, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsBooleanString, IsIn, IsNumber, IsString, ValidateNested } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 // Predefined gold product types
@@ -11,6 +11,57 @@ export const GOLD_PRODUCT_TYPES = [
     'Anklet',
 ] as const;
 export type GoldProductType = typeof GOLD_PRODUCT_TYPES[number];
+
+export const GOLD_PRODUCT_SUB_TYPES = [
+    {
+        symbol: "IR_GOLD_18K",
+        name_en: "18K Gold",
+        name: "طلای 18 عیار"
+    },
+    {
+        symbol: "IR_GOLD_24K",
+        name_en: "24K Gold",
+        name: "طلای 24 عیار",
+    },
+    {
+        symbol: "IR_GOLD_MELTED",
+        name_en: "Melted Gold",
+        name: "طلای آب‌شده نقدی",
+    },
+    {
+        symbol: "XAUUSD",
+        name_en: "Gold Ounce",
+        name: "انس طلا",
+    },
+    {
+        symbol: "IR_COIN_1G",
+        name_en: "1g Coin",
+        name: "سکه یک گرمی",
+    },
+    {
+        symbol: "IR_COIN_QUARTER",
+        name_en: "Quarter Coin",
+        name: "ربع سکه",
+    },
+    {
+        symbol: "IR_COIN_HALF",
+        name_en: "Half Coin",
+        name: "نیم سکه",
+    },
+    {
+        symbol: "IR_COIN_EMAMI",
+        name_en: "Emami Coin",
+        name: "سکه امامی",
+    },
+    {
+        symbol: "IR_COIN_BAHAR",
+        name_en: "Bahar Azadi Coin",
+        name: "سکه بهار آزادی",
+    }
+
+] as const;
+
+export type GoldProductSUBType = typeof GOLD_PRODUCT_SUB_TYPES[number]["symbol"];
 
 
 class TagDto {
@@ -32,6 +83,13 @@ export class CreateProductDto {
     @IsString()
     @IsIn(GOLD_PRODUCT_TYPES, { message: `Type must be one of: ${GOLD_PRODUCT_TYPES.join(', ')}` })
     type: GoldProductType;
+
+    @IsString()
+    @IsIn(GOLD_PRODUCT_SUB_TYPES.map(it => it.symbol), { message: `Type must be one of: ${GOLD_PRODUCT_SUB_TYPES.map(it => it.name).join(', ')}` })
+    subType: GoldProductSUBType;
+
+    @IsBoolean()
+    inventoryItem: boolean;
 
     @Transform(({ value }) => parseInt(value, 10))
     @IsNumber()

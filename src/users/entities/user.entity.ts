@@ -1,6 +1,7 @@
 import { Customer } from "src/customers/entities/customer.entity";
 import { Product } from "src/products/entities/product.entity";
-import { Sale } from "src/sales/entities/sale.entity";
+import { Invoice } from "src/sales/entities/invoice.entity";
+import { SaleItem } from "src/sales/entities/sale-item.entity";
 import { Tag } from "src/tags/entities/tag.entity";
 import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
@@ -34,6 +35,9 @@ export class User {
     @OneToMany(() => Customer, customer => customer.createdBy)
     customers: Customer[];
 
-    @OneToMany(() => Sale, sale => sale.createdBy)
-    sales: Sale[];
+    @OneToMany(() => Invoice, invoice => invoice.createdBy)
+    invoices: Invoice[];
+
+    @OneToMany(() => SaleItem, saleItem => saleItem.createdBy)
+    saleItems: SaleItem[];
 }

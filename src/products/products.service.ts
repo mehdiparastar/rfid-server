@@ -2,9 +2,10 @@ import { Injectable, NotAcceptableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { GoldCurrencyService } from 'src/gold-currency/gold-currency.service';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { TagsService } from 'src/tags/tags.service';
-import { Brackets, LessThan, LessThanOrEqual, Like, MoreThan, MoreThanOrEqual, Repository } from 'typeorm';
+import { In, LessThan, Like, MoreThan, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid'; // npm i uuid @types/uuid
 import { User } from '../users/entities/user.entity'; // Adjust path
 import { CreateProductDto } from './dto/create-product.dto';
@@ -29,6 +30,7 @@ export class ProductsService {
     @InjectRepository(Product)
     private productsRepository: Repository<Product>,
     private tagsService: TagsService,
+    private readonly goldCurrencyService: GoldCurrencyService
   ) { }
 
   async create(createProductDto: CreateProductDto, files: { photos?: Express.Multer.File[]; previews?: Express.Multer.File[] }, user: Partial<User>) {
@@ -44,7 +46,7 @@ export class ProductsService {
     for (const tagDto of createProductDto.tags) {
       let tag = await this.tagsService.findOne({
         where: { epc: tagDto.epc },
-        relations: { products: { sales: true } }
+        relations: { products: { saleItems: true } }
       });
 
       if (!tag) {
@@ -56,7 +58,7 @@ export class ProductsService {
       } else {
         if (tag.products.length > 0) {
           for (const product of tag.products) {
-            const soldCount = product.sales.reduce((p, c) => p + c.quantity, 0)
+            const soldCount = product.saleItems.reduce((p, c) => p + c.quantity, 0)
             if (product.quantity > soldCount) {
               tagsExceptions.push(`selected tag with EPC of "${tagDto.epc}" is used by product with name of "${product.name}"`)
             }
@@ -117,14 +119,16 @@ export class ProductsService {
         LessThan(sortField === "createdAt" ? new Date(cursor?.value) : cursor?.value)
     } : {}
 
+    const secondSortLevel = (sortField !== 'createdAt') ? { createdAt: 'DESC' } : {} as any
+
     const [items, total] = await this.productsRepository.findAndCount(
       {
         where: [
           { ...sortCondition, name: Like(`%${qFilterValue}%`) },
-          { ...sortCondition, sales: { customer: { name: Like(`%${qFilterValue}%`) } } },
+          { ...sortCondition, saleItems: { invoice: { customer: { name: Like(`%${qFilterValue}%`) } } } },
         ],
-        relations: { sales: { customer: true }, tags: true, createdBy: true },
-        order: { [sortField]: sortDirection.toUpperCase(), createdAt: 'DESC' },
+        relations: { saleItems: { invoice: { customer: true } }, tags: true, createdBy: true },
+        order: { [sortField]: sortDirection.toUpperCase(), ...secondSortLevel },
         take: limit
       }
     )
@@ -141,8 +145,8 @@ export class ProductsService {
     return { items, nextCursor, total };
   }
 
-  async getProductById(id: string) {
-    return this.productsRepository.findBy({ id: Number(id) });
+  async getProductsByIds(ids: number[]) {
+    return await this.productsRepository.find({ where: { id: In(ids) }, relations: { tags: true, saleItems: true, createdBy: true } })
   }
 
 }

@@ -13,6 +13,7 @@ import { SerialModule } from './serial/serial.module';
 import { SocketModule } from './socket/socket.module';
 import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
+import { GoldCurrencyModule } from './gold-currency/gold-currency.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     SerialModule,
     CustomersModule,
     SalesModule,
+    GoldCurrencyModule,
   ],
   controllers: [AppController],
   providers: [
