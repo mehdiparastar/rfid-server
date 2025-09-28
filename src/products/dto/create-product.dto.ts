@@ -70,6 +70,12 @@ class TagDto {
 
     @IsNumber()
     rssi: number;
+
+    @IsNumber()
+    pl: number;
+
+    @IsNumber()
+    pc: number;
 }
 
 export class CreateProductDto {

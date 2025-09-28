@@ -53,6 +53,8 @@ export class ProductsService {
         tag = await this.tagsService.create({
           epc: tagDto.epc,
           rssi: tagDto.rssi,
+          pl: tagDto.pl,
+          pc: tagDto.pc,
           createdBy: user,
         });
       } else {

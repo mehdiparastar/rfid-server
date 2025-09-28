@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { SerialService } from './serial.service';
 
-export type ScanMode = 'Inventory' | 'Invoice' | 'NewProduct';
+export type ScanMode = 'Inventory' | 'Scan' | 'NewProduct';
 
 @Controller('serial')
 export class SerialController {
@@ -56,8 +56,8 @@ export class SerialController {
     }
 
     @Get('/modules/scan-results')
-    scanResults(@Query('mode') mode: ScanMode) {
-        return this.serialService.scanResults[mode]
+    async scanResults(@Query('mode') mode: ScanMode) {
+        return await this.serialService.scanResult(mode)
     }
 
 

@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotAcceptableException, OnModuleInit } from '@nestjs/common';
 import { SerialPort } from 'serialport';
-import { ScanMode } from './serial.controller';
 import { SocketGateway } from 'src/socket/socket.gateway';
+import { ScanMode } from './serial.controller';
+import { Product } from 'src/products/entities/product.entity';
+import { Tag } from 'src/tags/entities/tag.entity';
+import { TagsService } from 'src/tags/tags.service';
 
 @Injectable()
 export class SerialService implements OnModuleInit {
@@ -20,9 +23,12 @@ export class SerialService implements OnModuleInit {
     private rfidPorts: SerialPort[] = [];
     public scanMode: ScanMode | null = null
     public isActiveScenario: boolean = false
-    public scanResults: { [key in ScanMode]: any[] } = { "Inventory": [], "Invoice": [], "NewProduct": [] }
+    public tagScanResults: { [key in ScanMode]: Partial<Tag>[] } = { "Inventory": [], "Scan": [], "NewProduct": [] }
 
-    constructor(private readonly socketGateway: SocketGateway) { }
+    constructor(
+        private readonly socketGateway: SocketGateway,
+        private readonly tagsService: TagsService,
+    ) { }
 
     async onModuleInit() { }
 
@@ -99,9 +105,9 @@ export class SerialService implements OnModuleInit {
                                             const epcEnd = epcStart + (pl - 5); // RSSI(1) + PC(2) + CRC(2)
                                             const epc = buffer.slice(epcStart, epcEnd).toString('hex').toUpperCase();
                                             this.logger.log(`Tag scanned on ${portInfo.path}: EPC=${epc}, RSSI=${rssi}`);
-                                            if (this.scanMode && this.scanResults[this.scanMode].findIndex(el => el.epc === epc) === -1) {
-                                                this.scanResults[this.scanMode].push({ rssi, epc, pc, pl })
-                                                this.socketGateway.emitScanResult({ rssi, epc, pc, pl })
+                                            if (this.scanMode && this.tagScanResults[this.scanMode].findIndex(el => el.epc === epc) === -1) {
+                                                this.tagScanResults[this.scanMode].push({ rssi, epc, pc, pl })
+                                                this.socketGateway.emitScanResult({ rssi, epc, pc, pl }, this.scanMode)
                                             }
                                         }
                                         buffer = Buffer.alloc(0); // Reset after processing
@@ -333,8 +339,66 @@ export class SerialService implements OnModuleInit {
         }
         this.isActiveScenario = false;
         // this.scanMode = null
-        this.scanResults.Inventory = [] // its for test
         return this.scenarioState()
+    }
+
+    public async scanResult(mode: ScanMode) {
+        if (mode === "Scan") {
+            const tags = this.tagScanResults[mode]
+            const dbTags = await this.tagsService.findtagsByTagEPC(tags.map(tag => tag.epc!))
+
+            const products: Product[] = []
+
+            for (const tag of dbTags) {
+                for (const product of tag.products) {
+                    const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
+                    if (product.quantity - soldQuantity > 0) {
+                        products.push(product)
+                    }
+                }
+            }
+
+            return { [mode]: [...new Map(products.map(item => [item.id, item])).values()] }
+        }
+        if (mode === "Inventory") {
+            const tags = this.tagScanResults[mode]
+            const dbTags = await this.tagsService.findtagsByTagEPC(tags.map(tag => tag.epc!))
+
+            const products: Product[] = []
+
+            for (const tag of dbTags) {
+                for (const product of tag.products) {
+                    const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
+                    if ((product.quantity - soldQuantity > 0) && product.inventoryItem) {
+                        products.push(product)
+                    }
+                }
+            }
+
+            return { [mode]: [...new Map(products.map(item => [item.id, item])).values()] }
+        }
+        if (mode === "NewProduct") {
+            const orgTags = this.tagScanResults[mode]
+            const dbTags = await this.tagsService.findtagsByTagEPC(orgTags.map(tag => tag.epc!))
+            const tags = orgTags.map(t => ({ ...t, ...dbTags.find(el => el.epc === t.epc) }))
+            const validTags: Partial<Tag>[] = []
+            for (const tag of tags) {
+                if (!tag.products || tag.products.length === 0) {
+                    validTags.push(tag)
+                } else {
+                    validTags.push(tag)
+                    for (const product of tag.products) {
+                        const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
+                        if (product.quantity - soldQuantity > 0) {
+                            validTags.pop()
+                            break
+                        }
+                    }
+                }
+            }
+
+            return { 'NewProduct': validTags }
+        }
     }
 
     public scenarioState() {
@@ -359,6 +423,10 @@ export class SerialService implements OnModuleInit {
 
 
     async InitScenario(power: number, mode: ScanMode) {
+        this.tagScanResults.Inventory = [] // its for test
+        this.tagScanResults.Scan = [] // its for test
+        this.tagScanResults.NewProduct = [] // its for test
+        await this.stopContinuous()
         if (this.isActiveScenario === false) {
             try {
                 const initingRes = await this.initializePorts()

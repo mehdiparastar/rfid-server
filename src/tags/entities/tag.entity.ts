@@ -10,8 +10,14 @@ export class Tag {
     @Column('varchar', { length: 255, nullable: false, unique: true })
     epc: string;  // RFID EPC
 
-    @Column('decimal', { precision: 10, scale: 2, nullable: false })
+    @Column('int', { nullable: false })
     rssi: number;  // RSSI value (signal strength)
+
+    @Column('int', { nullable: false })
+    pc: number;
+
+    @Column('int', { nullable: false })
+    pl: number;
 
     @ManyToMany(() => Product, product => product.tags)
     products: Product[];
