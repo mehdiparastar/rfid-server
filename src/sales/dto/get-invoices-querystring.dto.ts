@@ -1,7 +1,7 @@
 // dto/get-products.dto.ts
 import { IsInt, IsOptional, IsString } from 'class-validator';
 
-export class GetProductsDto {
+export class GetInvoicesDto {
     @IsOptional()
     @IsInt()
     limit: number;

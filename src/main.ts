@@ -16,6 +16,7 @@ async function bootstrap() {
     origin: ['http://127.0.0.1:1252', 'http://localhost:1252', 'http://127.0.0.1', 'http://localhost'],
     credentials: true, // Allow sending cookies from the client
   });
+  
 
   app.use(cookieParser());
 

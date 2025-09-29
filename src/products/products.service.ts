@@ -14,6 +14,7 @@ import { Product } from './entities/product.entity';
 export interface Cursor {
   value: string | number | Date; // type depends on your sort field
   createdAt: Date;               // tie-breaker
+  id: number;
 }
 
 export interface GetAllProductsOptions {
