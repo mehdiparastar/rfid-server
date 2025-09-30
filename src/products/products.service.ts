@@ -5,11 +5,12 @@ import * as path from 'path';
 import { GoldCurrencyService } from 'src/gold-currency/gold-currency.service';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { TagsService } from 'src/tags/tags.service';
-import { In, LessThan, Like, MoreThan, Repository } from 'typeorm';
+import { And, In, LessThan, Like, MoreThan, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid'; // npm i uuid @types/uuid
 import { User } from '../users/entities/user.entity'; // Adjust path
 import { CreateProductDto } from './dto/create-product.dto';
 import { Product } from './entities/product.entity';
+import { createSortObject, getByPath, makeSortCondition } from 'src/helperFunctions/createSortObject';
 
 export interface Cursor {
   value: string | number | Date; // type depends on your sort field
@@ -116,22 +117,41 @@ export class ProductsService {
   }: GetAllProductsOptions) {
 
     const qFilterValue = filters['q']
-    const sortCondition = !!cursor ? {
-      [sortField]: sortDirection === 'asc' ?
-        MoreThan(sortField === "createdAt" ? new Date(cursor?.value) : cursor?.value) :
-        LessThan(sortField === "createdAt" ? new Date(cursor?.value) : cursor?.value)
-    } : {}
 
-    const secondSortLevel = (sortField !== 'createdAt') ? { createdAt: 'DESC' } : {} as any
+    const sortCondition = makeSortCondition(sortField, sortDirection, cursor)
+
+    // const secondSortLevel_ = (sortField !== 'createdAt') ? (sortDirection === 'asc' ? { createdAt: 'ASC' } : { createdAt: 'DESC' }) : {} as any
+    const secondSortLevel = (sortDirection === 'asc' ? { id: 'ASC' } : { id: 'DESC' }) as any
+    const order = { ...createSortObject(sortField, sortDirection), ...secondSortLevel }
+
 
     const [items, total] = await this.productsRepository.findAndCount(
       {
-        where: [
-          { ...sortCondition, name: Like(`%${qFilterValue}%`) },
-          { ...sortCondition, saleItems: { invoice: { customer: { name: Like(`%${qFilterValue}%`) } } } },
-        ],
         relations: { saleItems: { invoice: { customer: true } }, tags: true, createdBy: true },
-        order: { [sortField]: sortDirection.toUpperCase(), ...secondSortLevel },
+        where: [
+          ...sortCondition
+            .map(el => ({
+              ...el,
+              name: el?.["name"] ?
+                And(Like(`%${qFilterValue}%`), el?.["name"]) :
+                Like(`%${qFilterValue}%`)
+
+            })),
+          ...sortCondition
+            .map(el => ({
+              ...el,
+              saleItems: {
+                invoice: {
+                  customer: {
+                    name: el?.["saleItems"]?.["invoice"]?.["customer"]?.["name"] ?
+                      And(Like(`%${qFilterValue}%`), el?.["saleItems"]?.["invoice"]?.["customer"]?.["name"]) :
+                      Like(`%${qFilterValue}%`)
+                  }
+                }
+              }
+            })),
+        ],
+        order:order,
         take: limit
       }
     )
@@ -140,8 +160,9 @@ export class ProductsService {
     const nextCursor =
       items.length === limit && items.length > 0
         ? {
-          value: (items[items.length - 1] as any)[sortField],
+          value: getByPath((items[items.length - 1]), sortField), 
           createdAt: items[items.length - 1].createdAt,
+          id: items[items.length - 1].id,
         }
         : null;
 

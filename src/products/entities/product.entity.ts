@@ -55,9 +55,17 @@ export class Product {
     @OneToMany(() => SaleItem, saleItem => saleItem.product)
     saleItems: SaleItem[];
 
-    @CreateDateColumn()
-    createdAt?: Date;
+    @CreateDateColumn({
+        type: 'datetime',        // or 'timestamp'
+        precision: 3,
+        default: () => 'CURRENT_TIMESTAMP(3)',
+    })
+    createdAt: Date;
 
-    @UpdateDateColumn()
-    updatedAt?: Date;
+    @UpdateDateColumn({
+        type: 'datetime',        // or 'timestamp'
+        precision: 3,
+        default: () => 'CURRENT_TIMESTAMP(3)',
+    })
+    updatedAt: Date;
 }

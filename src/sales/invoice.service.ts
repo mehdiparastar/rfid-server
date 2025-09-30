@@ -1,7 +1,7 @@
 import { InjectRepository } from "@nestjs/typeorm";
 import { Invoice } from "./entities/invoice.entity";
 import { Injectable } from "@nestjs/common";
-import { And, LessThan, Like, MoreThan, Repository } from "typeorm";
+import { And, In, LessThan, Like, MoreThan, Repository } from "typeorm";
 import { Cursor } from "src/products/products.service";
 import { createSortObject, makeSortCondition } from "src/helperFunctions/createSortObject";
 
@@ -95,7 +95,6 @@ export class InvoicesService {
                                 }
                             }
                         })),
-                    // { ...sortCondition, items: { product: { tags: { epc: sortCondition?.["items"]?.["product"]?.["name"] ? And(Like(`%${qFilterValue}%`), sortCondition?.["items"]?.["product"]?.["name"]) : Like(`%${qFilterValue}%`) } } } },
                 ],
                 order: order,
                 take: limit
@@ -112,6 +111,10 @@ export class InvoicesService {
             : null;
 
         return { items, nextCursor, total };
+    }
+
+    async getInvoicesByIds(ids: number[]) {
+        return await this.invoicesRepository.find({ where: { id: In(ids) }, relations: { items: { product: { saleItems: true, tags: true } }, customer: true, createdBy: true } })
     }
 
 }

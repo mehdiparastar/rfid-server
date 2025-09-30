@@ -20,11 +20,19 @@ export class User {
     @Column('simple-array', { nullable: false })
     roles: string[];
 
-    @CreateDateColumn()
-    createdAt?: Date;
+    @CreateDateColumn({
+        type: 'datetime',        // or 'timestamp'
+        precision: 3,
+        default: () => 'CURRENT_TIMESTAMP(3)',
+    })
+    createdAt: Date;
 
-    @UpdateDateColumn()
-    updatedAt?: Date;
+    @UpdateDateColumn({
+        type: 'datetime',        // or 'timestamp'
+        precision: 3,
+        default: () => 'CURRENT_TIMESTAMP(3)',
+    })
+    updatedAt: Date;
 
     @OneToMany(() => Tag, tag => tag.createdBy)
     tags: Tag[];
