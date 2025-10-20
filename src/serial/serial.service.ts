@@ -107,7 +107,7 @@ export class SerialService implements OnModuleInit {
                                             this.logger.log(`Tag scanned on ${portInfo.path}: EPC=${epc}, RSSI=${rssi}`);
                                             if (this.scanMode && this.tagScanResults[this.scanMode].findIndex(el => el.epc === epc) === -1) {
                                                 this.tagScanResults[this.scanMode].push({ rssi, epc, pc, pl })
-                                                this.socketGateway.emitScanResult({ rssi, epc, pc, pl }, this.scanMode)
+                                                // this.socketGateway.emitScanResult({ rssi, epc, pc, pl }, this.scanMode)
                                             }
                                         }
                                         buffer = Buffer.alloc(0); // Reset after processing

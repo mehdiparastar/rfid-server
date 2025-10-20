@@ -3,6 +3,12 @@ import { SerialService } from './serial.service';
 
 export type ScanMode = 'Inventory' | 'Scan' | 'NewProduct';
 
+export enum ScanModeEnum {
+    Inventory = 'Inventory',
+    Scan = 'Scan',
+    NewProduct = 'NewProduct',
+}
+
 @Controller('serial')
 export class SerialController {
     constructor(private readonly serialService: SerialService) { }
