@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import type { ScanMode } from './serial.controller';
+import type { ScanMode } from '../enum/scanMode.enum';
 import { Tag } from 'src/tags/entities/tag.entity';
 
 export type DeviceId = string;

@@ -1,6 +1,6 @@
 import { ArrayNotEmpty, IsArray, IsEnum, IsString } from "class-validator";
 import { DeviceId } from "./jrd-state.store";
-import { type ScanMode, ScanModeEnum } from "./serial.controller";
+import { type ScanMode, ScanModeEnum } from "src/enum/scanMode.enum";
 
 export class StartScenarioDto {
     @IsArray()

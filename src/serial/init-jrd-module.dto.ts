@@ -1,7 +1,7 @@
 // init-module.dto.ts
 import { IsBoolean, IsEnum, IsInt, IsString, Max, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { type ScanMode, ScanModeEnum } from './serial.controller';
+import { type ScanMode, ScanModeEnum } from '../enum/scanMode.enum';
 
 export class InitJrdModuleDto {
     @ApiProperty({ example: 26, description: 'TX power (dBm), device-specific range' })

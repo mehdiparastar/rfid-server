@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Param, Query, BadRequestException, UseInterceptors } from '@nestjs/common';
 import { JrdHubService } from './jrd-hub.service';
 import { ApiBody } from '@nestjs/swagger';
-import { ScanModeEnum, type ScanMode } from './serial.controller';
+import { ScanModeEnum, type ScanMode } from '../enum/scanMode.enum';
 import { DeviceId } from './jrd-state.store';
 import { JrdService } from './jrd.service';
 import { SerializeRequestsInterceptor } from 'src/interceptors/serialize-requests.interceptor';

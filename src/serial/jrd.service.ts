@@ -4,7 +4,7 @@ import { Tag } from "src/tags/entities/tag.entity";
 import { TagsService } from "src/tags/tags.service";
 import { JrdHubService } from "./jrd-hub.service";
 import { DeviceId, JRDState, JrdStateStore, TagScan } from "./jrd-state.store";
-import { ScanMode } from "./serial.controller";
+import { ScanMode } from "src/enum/scanMode.enum";
 
 @Injectable()
 export class JrdService {
@@ -103,7 +103,7 @@ export class JrdService {
         const currentScenario = this.store.allStates()
         // update server-side state + start hardware scan
         for (const el of currentScenario) {
-                this.store.clearResults(el.id, mode);
+            this.store.clearResults(el.id, mode);
         }
 
 

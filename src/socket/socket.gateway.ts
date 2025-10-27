@@ -7,11 +7,10 @@ import { RolesGuard } from 'src/authorization/roles.guard';
 import { env } from 'src/config/env';
 import { UserRoles } from 'src/enum/userRoles.enum';
 import { extractTokenFromCookie, WsJwtAccessGuard } from './ws-jwt-access.guard';
-import { ScanMode } from 'src/serial/serial.controller';
 import { TagsService } from 'src/tags/tags.service';
 import { Product } from 'src/products/entities/product.entity';
-import { Tag } from 'src/tags/entities/tag.entity';
 import { DeviceId, TagScan } from 'src/serial/jrd-state.store';
+import { ScanMode } from 'src/enum/scanMode.enum';
 
 @Injectable()
 @WebSocketGateway({
