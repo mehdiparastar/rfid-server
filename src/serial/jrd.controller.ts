@@ -6,7 +6,7 @@ import { DeviceId } from './jrd-state.store';
 import { JrdService } from './jrd.service';
 import { SerializeRequestsInterceptor } from 'src/interceptors/serialize-requests.interceptor';
 import { InitJrdModuleDto } from './init-jrd-module.dto';
-import { StartScenarioDto, StopScenarioDto } from './scenario.dto';
+import { ClearScenarioHistoryDto, StartScenarioDto, StopScenarioDto } from './scenario.dto';
 
 @Controller('jrd')
 export class JrdController {
@@ -56,6 +56,24 @@ export class JrdController {
         const { mode } = body;
 
         return this.jrdService.stopScenario(mode)
+    }
+
+    @UseInterceptors(SerializeRequestsInterceptor)
+    @Post('/modules/clear-scenario-history')
+    @ApiBody({
+        description: 'Clear scanned history for a set of devices in provided mode',
+        schema: {
+            type: 'object',
+            properties: {
+                mode: { type: 'string', enum: Object.values(ScanModeEnum), example: 'Scan' },
+            },
+            required: ['mode'],
+        },
+    })
+    async clearScenarioHistory(@Body() body: ClearScenarioHistoryDto) {
+        const { mode } = body;
+
+        return this.jrdService.clearScenarioHistory(mode)
     }
 
 

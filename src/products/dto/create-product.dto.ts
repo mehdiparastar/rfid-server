@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsBooleanString, IsIn, IsNumber, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsBooleanString, IsIn, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 // Predefined gold product types
@@ -79,6 +79,10 @@ class TagDto {
 }
 
 export class CreateProductDto {
+    @IsOptional()
+    @IsNumber()
+    id?: number
+
     @IsString()
     name: string;
 
@@ -94,8 +98,21 @@ export class CreateProductDto {
     @IsIn(GOLD_PRODUCT_SUB_TYPES.map(it => it.symbol), { message: `Type must be one of: ${GOLD_PRODUCT_SUB_TYPES.map(it => it.name).join(', ')}` })
     subType: GoldProductSUBType;
 
-    @IsBoolean()
-    inventoryItem: boolean;
+    // @IsBoolean()
+    // inventoryItem: boolean;
+
+    // @IsBoolean({ message: 'inventoryItem must be a valid boolean' })
+    @Transform((v) => {
+        const { value } = v
+        // Handle direct booleans (rare in form data) or strings
+        if (typeof value === 'boolean') return value;
+        const strValue = String(value).toLowerCase().trim();
+        if (['true', '1', 'yes', 'on'].includes(strValue)) return 'true';
+        if (['false', '0', 'no', 'off'].includes(strValue)) return 'false';
+        return undefined;
+    })
+    @IsString()
+    inventoryItem: string;
 
     @Transform(({ value }) => parseInt(value, 10))
     @IsNumber()

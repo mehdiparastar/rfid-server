@@ -46,11 +46,23 @@ export class SalesService {
   }
 
   findAll() {
-    return `This action returns all sales`;
+    return this.saleItemsRepository.find();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} sale`;
+  findById(id: number) {
+    return this.saleItemsRepository.find({ where: { id } });
+  }
+
+  countById(id: number) {
+    return this.saleItemsRepository.count({ where: { id } });
+  }
+
+  findByProductId(id: number) {
+    return this.saleItemsRepository.find({ where: { product: { id } }, relations: { product: true } });
+  }
+
+  countByProductId(id: number) {
+    return this.saleItemsRepository.count({ where: { product: { id } }, relations: { product: true } });
   }
 
   update(id: number, updateSaleDto: UpdateSaleDto) {

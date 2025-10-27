@@ -16,3 +16,8 @@ export class StopScenarioDto {
     @IsEnum(ScanModeEnum)
     mode!: ScanMode;
 }
+
+export class ClearScenarioHistoryDto {
+    @IsEnum(ScanModeEnum)
+    mode!: ScanMode;
+}

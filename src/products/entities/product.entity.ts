@@ -39,7 +39,7 @@ export class Product {
     @Column('int', { nullable: false, default: 1 })
     quantity: number;  // Available quantity of the product
 
-    @Column('tinyint', { unsigned: true, width: 3, default: 0, nullable: false })
+    @Column('tinyint', { unsigned: true, width: 3, default: 2, nullable: false })
     makingCharge: number; // 0..255; Charge for making the product
 
     @Column('tinyint', { unsigned: true, width: 3, default: 10, nullable: false })

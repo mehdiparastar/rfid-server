@@ -99,6 +99,18 @@ export class JrdService {
         return await this.listAllConnectedDevice();
     }
 
+    async clearScenarioHistory(mode: ScanMode) {
+        const currentScenario = this.store.allStates()
+        // update server-side state + start hardware scan
+        for (const el of currentScenario) {
+                this.store.clearResults(el.id, mode);
+        }
+
+
+        // return canonical list so the client can commit
+        return true;
+    }
+
 
     async scanResult(mode: ScanMode) {
         const currentScenario = this.store.allStates()

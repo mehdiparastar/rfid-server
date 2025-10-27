@@ -23,7 +23,7 @@ export class SalesController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.salesService.findOne(+id);
+    return this.salesService.findById(+id);
   }
 
   @Patch(':id')

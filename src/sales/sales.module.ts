@@ -13,5 +13,6 @@ import { InvoicesService } from './invoice.service';
   imports: [TypeOrmModule.forFeature([SaleItem, Invoice]), GoldCurrencyModule, CustomersModule],
   controllers: [SalesController, InvoicesController],
   providers: [SalesService, InvoicesService],
+  exports: [SalesService]
 })
 export class SalesModule { }

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseArrayPipe, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseArrayPipe, ParseIntPipe, Patch, Post, Put, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
@@ -7,6 +7,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { Cursor, ProductsService } from './products.service';
 import { ValidateProductFilesPipe } from './validate-product-files.pipe';
 import { GetProductsDto } from './dto/get-products-querystring.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 const MAX_FILES_PER_FIELD = 12;
 const MAX_FILE_SIZE = 400 * 1024 * 1024; // 400 MB
@@ -80,6 +81,42 @@ export class ProductsController {
 
     const products = await this.productsService.getProductsByIds(ids); // SELECT ... WHERE id IN (...)
     return products;
+  }
+
+  // --- ADD THIS: delete a single product ---
+  @Delete(':id')
+  @UseGuards(JwtAccessGuard)
+  @HttpCode(HttpStatus.NO_CONTENT) // 204 on success
+  async deleteOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: Partial<User>,
+  ) {
+    // Service should handle: existence check, permission (owner/admin), side effects (files/tags), etc.
+    const deleted = await this.productsService.deleteOneProductById(id, user);
+    if (!deleted) {
+      // If service returns false/0 when not found
+      throw new NotFoundException('Product not found');
+    }
+    // No body for 204
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAccessGuard) 
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'photos' }, { name: 'previews' }]))
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateProductDto: UpdateProductDto,
+    @UploadedFiles(
+      new ValidateProductFilesPipe({
+        maxPerField: MAX_FILES_PER_FIELD,
+        maxSize: MAX_FILE_SIZE,
+        mime: /^image\//,
+      })
+    )
+    files: { photos?: Express.Multer.File[]; previews?: Express.Multer.File[] },
+    @CurrentUser() user: Partial<User>,
+  ) {
+    return this.productsService.update(id, updateProductDto, files, user);
   }
 
 }
