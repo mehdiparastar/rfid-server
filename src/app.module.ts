@@ -14,6 +14,7 @@ import { SocketModule } from './socket/socket.module';
 import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
 import { GoldCurrencyModule } from './gold-currency/gold-currency.module';
+import { DbOperationsModule } from './db-operations/db-operations.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { GoldCurrencyModule } from './gold-currency/gold-currency.module';
     CustomersModule,
     SalesModule,
     GoldCurrencyModule,
+    DbOperationsModule,
   ],
   controllers: [AppController],
   providers: [

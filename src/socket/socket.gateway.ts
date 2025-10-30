@@ -11,6 +11,7 @@ import { TagsService } from 'src/tags/tags.service';
 import { Product } from 'src/products/entities/product.entity';
 import { DeviceId, TagScan } from 'src/serial/jrd-state.store';
 import { ScanMode } from 'src/enum/scanMode.enum';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 @WebSocketGateway({
@@ -61,10 +62,20 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleConnection(client: Socket) {
+    const user = (client as any)?.user;
+    if (user?.id) {
+      // Join the socket to a room named after the user ID for targeted emits
+      client.join(`room-${user.id.toString()}`);
+    }
     this.logger.warn(`Client connected: ${client.id}, User: ${JSON.stringify((client as any)?.user)}`);
   }
 
   handleDisconnect(client: Socket) {
+    const user = (client as any)?.user;
+    if (user?.id) {
+      // Socket.IO automatically leaves rooms on disconnect, but explicit leave is optional for logging
+      client.leave(`room-${user.id.toString()}`);
+    }
     this.logger.warn(`Client disconnected: ${client.id}, User: ${JSON.stringify((client as any)?.user)}`);
   }
 
@@ -138,6 +149,21 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       message,
       timestamp: new Date(),
     });
+  }
+
+
+  emitBackUpProgress(backupType: "backup_db" | "backup_files", progress: number, user: Partial<User>) {
+    if (user?.id) {
+      this.server
+        // .to(`room-${user.id.toString()}`)
+        .emit('backupProgress', { [backupType]: progress });
+    } else {
+      this.logger.warn('Cannot emit backup progress: User ID is missing');
+    }
+  }
+
+  emitRestoreDBProgress(fileName: string, progress: number) {
+    // this.server.to(filesSocketInItRoom).emit('restoreDBProgress', { [fileName]: progress })
   }
 
 }

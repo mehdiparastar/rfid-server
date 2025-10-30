@@ -4,6 +4,7 @@
 /build
 /uploads/photos
 /uploads/previews
+/backups
 # Logs
 logs
 *.log
