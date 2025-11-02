@@ -13,7 +13,10 @@ export class TagLogService implements OnModuleInit {
         private readonly store: JrdStateStore
     ) { }
 
-    onModuleInit() {
+    async onModuleInit() {
+        // Wait for hub to finish initializing devices
+        await this.hub.initPromise;
+
         // subscribe to every device’s tag$ once
         const attach = (id: string) => {
             const dev = this.hub.get(id);
@@ -31,6 +34,7 @@ export class TagLogService implements OnModuleInit {
 
         };
         this.hub.list().forEach(d => attach(d.id));
+
         // If you enable mDNS discovery, call attach inside addDevice as well.
     }
 }

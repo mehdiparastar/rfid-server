@@ -1,18 +1,20 @@
-import { Controller, Get, Post, Body, Param, Query, BadRequestException, UseInterceptors } from '@nestjs/common';
-import { JrdHubService } from './jrd-hub.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Body, Controller, Get, Inject, Param, Post, Query, UseInterceptors } from '@nestjs/common';
 import { ApiBody } from '@nestjs/swagger';
-import { ScanModeEnum, type ScanMode } from '../enum/scanMode.enum';
-import { DeviceId } from './jrd-state.store';
-import { JrdService } from './jrd.service';
+import { type Cache } from 'cache-manager';
 import { SerializeRequestsInterceptor } from 'src/interceptors/serialize-requests.interceptor';
+import { ScanModeEnum, type ScanMode } from '../enum/scanMode.enum';
 import { InitJrdModuleDto } from './init-jrd-module.dto';
+import { JrdHubService } from './jrd-hub.service';
+import { IjrdList, JrdService } from './jrd.service';
 import { ClearScenarioHistoryDto, StartScenarioDto, StopScenarioDto } from './scenario.dto';
 
 @Controller('jrd')
 export class JrdController {
     constructor(
         private readonly jrdService: JrdService,
-        private readonly hub: JrdHubService
+        private readonly hub: JrdHubService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) { }
 
     @UseInterceptors(SerializeRequestsInterceptor)
@@ -23,12 +25,23 @@ export class JrdController {
 
     @Get('current-scenario')
     async currentScenario() {
-        return this.jrdService.currentScenario()
+        const current = this.jrdService.currentScenario()
+        return current
     }
 
     @UseInterceptors(SerializeRequestsInterceptor)
     @Post('/modules/init')
     async initModules(@Body() body: InitJrdModuleDto[]) {
+        const bodyHash = body.map(x => `${x.deviceId}-${x.isActive}-${x.mode}-${x.power}`).join("_")
+        const cacheKey = `modules-init-${bodyHash}`;
+        const ttlSeconds = 120;
+
+        // Get from cache (returns undefined on miss)
+        const cacheList = await this.cacheManager.get<IjrdList[]>(cacheKey);
+        if (cacheList !== undefined) {
+            return cacheList;
+        }
+
         for (const scenario of body) {
             const { power, mode, deviceId, isActive } = scenario;
 
@@ -37,7 +50,10 @@ export class JrdController {
             this.jrdService.moduleInit(deviceId, { power: power, mode: mode, isActive: isActive })
 
         }
-        return await this.list()
+        const list = await this.list()
+        await this.cacheManager.set(cacheKey, list, ttlSeconds);
+
+        return list
     }
 
     @UseInterceptors(SerializeRequestsInterceptor)

@@ -16,8 +16,9 @@ import { UsersModule } from './users/users.module';
 import { GoldCurrencyModule } from './gold-currency/gold-currency.module';
 import { DbOperationsModule } from './db-operations/db-operations.module';
 
+
 @Module({
-  imports: [
+  imports: [    
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/api/uploads', // add `/api` prefix

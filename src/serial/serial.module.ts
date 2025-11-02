@@ -6,10 +6,31 @@ import { JrdController } from './jrd.controller';
 import { TagLogService } from './tag-log.service';
 import { JrdStateStore } from './jrd-state.store';
 import { JrdService } from './jrd.service';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-store';
 
 @Module({
-  imports: [SocketModule, TagsModule],
-  providers: [JrdHubService, TagLogService, JrdStateStore, JrdService],
+  imports: [
+    CacheModule.registerAsync({
+      useFactory: async () => ({
+        store: await redisStore({
+          socket: {
+            host: 'localhost',  // Local Redis on M2 Berry
+            port: 6379,
+          },
+          ttl: 120,  // Your 2-min default
+        }),
+      }),
+    }),
+    SocketModule,
+    TagsModule
+  ],
+  providers: [
+    JrdHubService,
+    JrdStateStore,
+    JrdService,
+    TagLogService,
+  ],
   controllers: [JrdController],
   exports: [JrdHubService]
 })

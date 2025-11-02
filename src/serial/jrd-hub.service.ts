@@ -1,17 +1,30 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { JrdDeviceClient } from './jrd-device.client';
+import { env } from "src/config/env";
+import dns from 'dns/promises';
 
 type DeviceSpec = { id: string; host: string; port: number };
 
 @Injectable()
 export class JrdHubService implements OnModuleInit, OnModuleDestroy {
     private devices = new Map<string, JrdDeviceClient>();
+    // Add this: Readiness signal for dependents
+    public readonly initPromise: Promise<void>;
 
-    onModuleInit() {
+    private _resolveInit?: () => void;  // Private resolver for the promise
+
+    constructor() {
+        // Initialize the promise in constructor (always pending until onModuleInit finishes)
+        this.initPromise = new Promise<void>((resolve) => {
+            this._resolveInit = resolve;
+        });
+    }
+
+    async onModuleInit() {
         // 1) static config
-        const env = process.env.JRD_DEVICES || 'com7@192.168.43.220:33940,com8@192.168.43.181:33950';
+        const env_ = env("JRD_DEVICES") || 'com7@192.168.43.220:33940,com8@192.168.43.181:33950';
         // Format: "id@host:port,id2@host2:port2"
-        const specs: DeviceSpec[] = env.split(',')
+        const specs: DeviceSpec[] = env_.split(',')
             .map(s => s.trim())
             .filter(Boolean)
             .map(s => {
@@ -20,17 +33,32 @@ export class JrdHubService implements OnModuleInit, OnModuleDestroy {
                 return { id: idPart || host, host, port: parseInt(portStr || '33940', 10) };
             });
 
-        for (const spec of specs) this.addDevice(spec);
+        const hostToIPMapper = {}
+        for (const s of specs) {
+            try {
+                const [ip] = await dns.resolve4(s.host)
+                if (ip) hostToIPMapper[s.host] = ip
+            } catch (err) { }
+        }
 
+
+        for (const spec of specs) {
+            if (!!hostToIPMapper[spec.host])
+                this.addDevice({ ...spec, host: hostToIPMapper[spec.host] || spec.host })
+        };
+        
         // 2) OPTIONAL: auto-discovery via mDNS (_jrd._udp)
         // uncomment if you want automatic adoption of new modules:
         // this.startMdnsDiscovery();
+
+        this._resolveInit?.();
     }
 
     onModuleDestroy() {
         for (const d of this.devices.values()) d.close();
         this.devices.clear();
     }
+
 
     addDevice(spec: DeviceSpec) {
         if (this.devices.has(spec.id)) return;

@@ -23,6 +23,7 @@ export enum envKeys {
     JWT_REFRESH_EXPIRATION_TIME = "JWT_REFRESH_EXPIRATION_TIME",
     REDIS_HOST = "REDIS_HOST",
     REDIS_PORT = "REDIS_PORT",
+    JRD_DEVICES = "JRD_DEVICES",
 }
 
 type envKeysType = `${envKeys}`;

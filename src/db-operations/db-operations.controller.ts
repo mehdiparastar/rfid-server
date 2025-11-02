@@ -65,8 +65,8 @@ export class DbOperationsController {
 
         if (!file.originalname.toLowerCase().endsWith('.zip')) {
             throw new BadRequestException('Only ZIP files are allowed');
-        }        
+        }
 
-        return this.dbOperationService.restoreFromBackup(file);
+        return this.dbOperationService.restoreFromBackup(file, user);
     }
 }

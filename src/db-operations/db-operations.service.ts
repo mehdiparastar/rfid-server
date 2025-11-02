@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import AdmZip from 'adm-zip';
 import archiver from 'archiver';
-import { exec, execSync } from 'child_process';
+import { exec, execSync, spawn } from 'child_process';
 import * as fs from 'fs';
 import { rm } from 'fs/promises';
 import * as path from 'path';
@@ -103,7 +103,7 @@ export class DbOperationsService {
 
             run.stderr && run.stderr.on('data', (data) => {
                 if (!data.includes('mysqldump: [Warning] Using a password on the command line interface can be insecure.')) {
-                    console.error(`Backup stderr: ${data}`);
+                    this.logger.error(`Backup stderr: ${data}`);
                     reject(new InternalServerErrorException(data || "Backup failed."))
                 }
             });
@@ -269,14 +269,14 @@ export class DbOperationsService {
     async deleteDirectory(dirPath: string): Promise<void> {
         try {
             await rm(dirPath, { recursive: true, force: true });
-            console.log(`Directory ${dirPath} deleted successfully`);
+            this.logger.log(`Directory ${dirPath} deleted successfully`);
         } catch (error) {
-            console.error(`Error deleting directory ${dirPath}:`, error);
+            this.logger.error(`Error deleting directory ${dirPath}:`, error);
             throw error;
         }
     }
 
-    async restoreFromBackup(file: Express.Multer.File) {
+    async restoreFromBackup(file: Express.Multer.File, user: Partial<User>) {
         const safeFilename = `${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
         const tempZipPath = path.join(this.tempDir, safeFilename);
         const extractPath = path.join(this.extractDir, safeFilename.replace('.zip', ''));
@@ -313,35 +313,80 @@ export class DbOperationsService {
             }
 
             if (fs.existsSync(sqlFilePath)) {
+                const totalSize = fs.statSync(sqlFilePath).size;
+                let bytesRead = 0;
+                let lastEmittedProgress = 0; // To throttle emissions (e.g., every 5%)
+
                 const restoredDB = await new Promise((resolve, reject) => {
-                    this.socketGateway.emitRestoreDBProgress(`${sqlFileName}`, 0)
+                    this.socketGateway.emitRestoreDBProgress("restore_db", 0, user);
 
-                    // docker exec -i ctDB mysql -u admin --password=admin ct_db < backup.sql
-                    const command = `mysql -h ${env("MYSQL_ROOT_HOST")} -u ${env("MYSQL_USER")} --password=${env("MYSQL_PASSWORD")} ${env("MYSQL_DATABASE")} < ${sqlFilePath}`;
+                    const mysqlArgs = [
+                        '-h', env("MYSQL_ROOT_HOST"),
+                        '-u', env("MYSQL_USER"),
+                        '--password=' + env("MYSQL_PASSWORD"),
+                        env("MYSQL_DATABASE")
+                    ];
 
-                    const run = exec(command);
+                    const mysql = spawn('mysql', mysqlArgs);
 
-                    run.stderr && run.stderr.on('data', (data) => {
-                        if (!data.includes('mysql: [Warning] Using a password on the command line interface can be insecure.')) {
-                            console.error(`Backup stderr: ${data}`);
-                            reject(new InternalServerErrorException(data || "Restore failed."))
+                    // Handle stdout (optional: log SQL output if needed)
+                    mysql.stdout.on('data', (data) => {
+                        this.logger.log(`MySQL stdout: ${data}`);
+                    });
+
+                    // Handle stderr
+                    mysql.stderr.on('data', (data) => {
+                        const stderrStr = data.toString();
+                        if (!stderrStr.includes('mysql: [Warning] Using a password on the command line interface can be insecure.')) {
+                            this.logger.error(`Restore stderr: ${stderrStr}`);
+                            reject(new InternalServerErrorException(stderrStr || "Restore failed."));
                         }
                     });
 
-                    run.stdout && run.stdout.on('data', (data) => {
-                        // Simulate progress reporting
-                        console.log(data)
+                    // Handle process errors
+                    mysql.on('error', (err) => {
+                        this.logger.error('MySQL spawn error:', err);
+                        reject(new InternalServerErrorException(`Restore failed: ${err.message}`));
                     });
 
-                    run.on('exit', (code) => {
+                    // Create read stream for the SQL file
+                    const stream = fs.createReadStream(sqlFilePath);
+
+                    // Monitor data chunks for progress
+                    stream.on('data', (chunk) => {
+                        bytesRead += chunk.length;
+                        const progress = Math.round((bytesRead / totalSize) * 100);
+
+                        // Throttle emissions to avoid spamming the client (e.g., update every 5%)
+                        if (progress - lastEmittedProgress >= 5 || progress === 100) {
+                            this.socketGateway.emitRestoreDBProgress("restore_db", progress, user);
+                            lastEmittedProgress = progress;
+                        }
+                    });
+
+                    // Handle stream errors
+                    stream.on('error', (err) => {
+                        this.logger.error('Stream error:', err);
+                        mysql.kill(); // Kill the MySQL process if stream fails
+                        reject(new InternalServerErrorException(`Restore failed: ${err.message}`));
+                    });
+
+                    // Pipe the stream to MySQL stdin
+                    stream.pipe(mysql.stdin);
+
+                    // Handle process close
+                    mysql.on('close', (code) => {
                         if (code !== 0) {
-                            reject(new InternalServerErrorException(`Restore failed. Error code is: ${code}`))
+                            reject(new InternalServerErrorException(`Restore failed. Error code is: ${code}`));
                         } else {
-                            this.socketGateway.emitRestoreDBProgress(`${sqlFileName}`, 100)
+                            // Ensure 100% is emitted if not already
+                            if (lastEmittedProgress < 100) {
+                                this.socketGateway.emitRestoreDBProgress("restore_db", 100, user);
+                            }
                             resolve(1);
                         }
                     });
-                })
+                });
 
                 // Clean up temp ZIP (keep extracted for audit/logs)
                 fs.unlinkSync(tempZipPath);
@@ -356,15 +401,41 @@ export class DbOperationsService {
             }
 
             if (dbRestoringRes.success) {
+                this.socketGateway.emitRestoreDBProgress("restore_files", 0, user)
                 const dbFilesZipFileName = file.originalname.replace("BackUp_", "").replace(".zip", "_uploads.zip")
                 const dbFilesZipFilePath = path.join(extractPath, dbFilesZipFileName)
                 const zip = new AdmZip(dbFilesZipFilePath);
+
                 const uploadsPath = path.join(process.cwd(), 'uploads');
                 await this.deleteDirectory(uploadsPath)
-                zip.extractAllTo(uploadsPath, true); // true to overwrite
+
+                const entries = zip.getEntries();
+                const fileEntries = entries.filter((entry: any) => !entry.isDirectory); // Only files for extraction & progress
+                const totalFiles = fileEntries.length;
+                let extractedCount = 0;
+                let lastEmittedProgress = 0;
+                const progressThreshold = 5;
+
+                for (const fileEntry of fileEntries) { // Loop only over files
+                    // FIXED: targetPath is ALWAYS the base dir; maintain=true recreates ZIP structure
+                    zip.extractEntryTo(fileEntry.entryName, uploadsPath, true, true); // entryName (string), base dir, maintain=true, overwrite=true
+
+                    extractedCount++;
+                    const currentProgress = Math.round((extractedCount / totalFiles) * 100);
+
+                    if (currentProgress >= lastEmittedProgress + progressThreshold || currentProgress === 100) {
+                        this.socketGateway.emitRestoreDBProgress('restore_files', currentProgress, user);
+                        lastEmittedProgress = currentProgress;
+                    }
+                }
+
+                // zip.extractAllTo(uploadsPath, true); // true to overwrite
+
                 await this.deleteDirectory(this.extractDir)
                 await this.deleteDirectory(this.tempDir)
+                this.socketGateway.emitRestoreDBProgress("restore_files", 100, user)
             }
+            await new Promise(resolve => setTimeout(resolve, 1000));
             return {
                 dbRestoringRes
             };

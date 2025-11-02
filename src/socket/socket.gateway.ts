@@ -9,9 +9,10 @@ import { UserRoles } from 'src/enum/userRoles.enum';
 import { extractTokenFromCookie, WsJwtAccessGuard } from './ws-jwt-access.guard';
 import { TagsService } from 'src/tags/tags.service';
 import { Product } from 'src/products/entities/product.entity';
-import { DeviceId, TagScan } from 'src/serial/jrd-state.store';
+import { DeviceId, JRDState, TagScan } from 'src/serial/jrd-state.store';
 import { ScanMode } from 'src/enum/scanMode.enum';
 import { User } from 'src/users/entities/user.entity';
+import { IjrdList } from 'src/serial/jrd.service';
 
 @Injectable()
 @WebSocketGateway({
@@ -63,9 +64,9 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket) {
     const user = (client as any)?.user;
-    if (user?.id) {
+    if (user?.id || user?.sub) {
       // Join the socket to a room named after the user ID for targeted emits
-      client.join(`room-${user.id.toString()}`);
+      client.join(`room-${(user?.id || user?.sub).toString()}`);
     }
     this.logger.warn(`Client connected: ${client.id}, User: ${JSON.stringify((client as any)?.user)}`);
   }
@@ -74,7 +75,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const user = (client as any)?.user;
     if (user?.id) {
       // Socket.IO automatically leaves rooms on disconnect, but explicit leave is optional for logging
-      client.leave(`room-${user.id.toString()}`);
+      client.leave(`room-${(user?.id || user?.sub).toString()}`);
     }
     this.logger.warn(`Client disconnected: ${client.id}, User: ${JSON.stringify((client as any)?.user)}`);
   }
@@ -141,6 +142,15 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  async emitUpdateScanStartStop(
+    mode: ScanMode,
+    data: readonly {
+      id: string;
+      state: Readonly<JRDState>;
+    }[]
+  ) {
+    this.server.emit('update-current-scenario', { mode, data })
+  }
 
   @SubscribeMessage('scan')
   handleMessage(client: Socket, @MessageBody() message: string): void {
@@ -155,15 +165,21 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitBackUpProgress(backupType: "backup_db" | "backup_files", progress: number, user: Partial<User>) {
     if (user?.id) {
       this.server
-        // .to(`room-${user.id.toString()}`)
+        .to(`room-${user.id.toString()}`)
         .emit('backupProgress', { [backupType]: progress });
     } else {
       this.logger.warn('Cannot emit backup progress: User ID is missing');
     }
   }
 
-  emitRestoreDBProgress(fileName: string, progress: number) {
-    // this.server.to(filesSocketInItRoom).emit('restoreDBProgress', { [fileName]: progress })
+  emitRestoreDBProgress(restoreType: "restore_db" | "restore_files", progress: number, user: Partial<User>) {
+    if (user?.id) {
+      this.server
+        .to(`room-${user.id.toString()}`)
+        .emit('restoreProgress', { [restoreType]: progress })
+    } else {
+      this.logger.warn('Cannot emit restore progress: User ID is missing');
+    }
   }
 
 }
