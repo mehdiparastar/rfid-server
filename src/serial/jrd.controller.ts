@@ -8,33 +8,54 @@ import { InitJrdModuleDto } from './init-jrd-module.dto';
 import { JrdHubService } from './jrd-hub.service';
 import { IjrdList, JrdService } from './jrd.service';
 import { ClearScenarioHistoryDto, StartScenarioDto, StopScenarioDto } from './scenario.dto';
+import { LockService } from './lock.service';
 
 @Controller('jrd')
 export class JrdController {
     constructor(
         private readonly jrdService: JrdService,
         private readonly hub: JrdHubService,
-        @Inject(CACHE_MANAGER) private cacheManager: Cache
+        @Inject(CACHE_MANAGER) private cacheManager: Cache,
+        private readonly lock: LockService
     ) { }
 
     @UseInterceptors(SerializeRequestsInterceptor)
     @Get('devices')
     async list() {
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running 
+
+        await this.hub.reDiscoverModules()
         return this.jrdService.listAllConnectedDevice()
     }
 
     @Get('current-scenario')
     async currentScenario() {
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running 
+
+        await this.hub.reDiscoverModules()
         const current = this.jrdService.currentScenario()
         return current
     }
 
     @UseInterceptors(SerializeRequestsInterceptor)
+    @Post('/modules/re-discover-modules')
+    async reDescoverModules() {
+        const discover = await this.hub.reDiscoverModules()
+        return discover
+    }
+
+    @UseInterceptors(SerializeRequestsInterceptor)
     @Post('/modules/init')
     async initModules(@Body() body: InitJrdModuleDto[]) {
-        const bodyHash = body.map(x => `${x.deviceId}-${x.isActive}-${x.mode}-${x.power}`).join("_")
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running 
+
+        await this.hub.reDiscoverModules()
+
+        const aliveModules = body.filter(m => this.hub.list().map(el => el.id).includes(m.deviceId))
+
+        const bodyHash = aliveModules.map(x => `${x.deviceId}-${x.isActive}-${x.mode}-${x.power}`).join("_")
         const cacheKey = `modules-init-${bodyHash}`;
-        const ttlSeconds = 120;
+        const ttlMiliSeconds = 1000;
 
         // Get from cache (returns undefined on miss)
         const cacheList = await this.cacheManager.get<IjrdList[]>(cacheKey);
@@ -42,17 +63,67 @@ export class JrdController {
             return cacheList;
         }
 
-        for (const scenario of body) {
+        for (const scenario of aliveModules) {
             const { power, mode, deviceId, isActive } = scenario;
 
-            await this.hub.get(deviceId).setPower(power < 15 ? 15 : power)
+            await (this.hub.get(deviceId)).setPower(power < 15 ? 15 : power)
 
             this.jrdService.moduleInit(deviceId, { power: power, mode: mode, isActive: isActive })
 
         }
         const list = await this.list()
-        await this.cacheManager.set(cacheKey, list, ttlSeconds);
+        await this.cacheManager.set(cacheKey, list, ttlMiliSeconds);
 
+        return list
+    }
+
+    @UseInterceptors(SerializeRequestsInterceptor)
+    @Post('/modules/setScanMode')
+    async setScanMode(@Body() body: { deviceId: string; mode: ScanMode; }) {
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running 
+
+        await this.hub.reDiscoverModules()
+
+        const { mode, deviceId } = body;
+
+        if (this.hub.list().map(el => el.id).includes(deviceId)) {
+            this.jrdService.moduleInit(deviceId, { mode: mode, })
+        }
+
+        const list = await this.list()
+        return list
+    }
+
+    @UseInterceptors(SerializeRequestsInterceptor)
+    @Post('/modules/setIsActiveModule')
+    async setIsActiveModule(@Body() body: { deviceId: string; isActive: boolean; }) {
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running 
+
+        await this.hub.reDiscoverModules()
+
+        const { isActive, deviceId } = body;
+
+        if (this.hub.list().map(el => el.id).includes(deviceId)) {
+            this.jrdService.moduleInit(deviceId, { isActive, })
+        }
+        const list = await this.list()
+        return list
+    }
+
+    @UseInterceptors(SerializeRequestsInterceptor)
+    @Post('/modules/setModuleScanPower')
+    async setModuleScanPower(@Body() body: { deviceId: string; power: number; }) {
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running 
+
+        await this.hub.reDiscoverModules()
+
+        const { power, deviceId } = body;
+
+        if (this.hub.list().map(el => el.id).includes(deviceId)) {
+            await (this.hub.get(deviceId)).setPower(power < 15 ? 15 : power)
+            this.jrdService.moduleInit(deviceId, { power, })
+        }
+        const list = await this.list()
         return list
     }
 
@@ -69,9 +140,14 @@ export class JrdController {
         },
     })
     async stopScenario(@Body() body: StopScenarioDto) {
-        const { mode } = body;
+        this.lock.startStopScenario();
+        try {
+            const { mode } = body;
 
-        return this.jrdService.stopScenario(mode)
+            return await this.jrdService.stopScenario(mode)
+        } finally {
+            this.lock.finishStopScenario(); // ✅ unlock
+        }
     }
 
     @UseInterceptors(SerializeRequestsInterceptor)
@@ -87,8 +163,9 @@ export class JrdController {
         },
     })
     async clearScenarioHistory(@Body() body: ClearScenarioHistoryDto) {
-        const { mode } = body;
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running
 
+        const { mode } = body;
         return this.jrdService.clearScenarioHistory(mode)
     }
 
@@ -107,26 +184,36 @@ export class JrdController {
         },
     })
     async startScenario(@Body() body: StartScenarioDto) {
+        await this.hub.reDiscoverModules()
+
         const { ids, mode } = body;
 
-        return this.jrdService.startScenario(ids, mode)
+        const validIDs = ids.filter(deviceId => this.hub.list().map(el => el.id).includes(deviceId))
+
+        return this.jrdService.startScenario(validIDs, mode)
     }
 
 
     @Get('/modules/scan-results')
     async scanResults(@Query('mode') mode: ScanMode) {
+        await this.lock.acquire(); // ⏸ wait if stopScenario is running
+
         return await this.jrdService.scanResult(mode)
     }
 
 
 
 
+
+
     @Get(':id/ping')
-    async ping(@Param('id') id: string) { return await this.hub.get(id).ping(); }
+    async ping(@Param('id') id: string) {
+        return await (this.hub.get(id)).ping();
+    }
 
     @Get(':id/power')
     async getPower(@Param('id') id: string) {
-        const p = await this.hub.get(id).getPower();
+        const p = await (this.hub.get(id)).getPower();
         return { id, power_dbm: p };
     }
 
@@ -146,13 +233,13 @@ export class JrdController {
         }
     })
     async setPower(@Param('id') id: string, @Body('dbm') dbm: number) {
-        await this.hub.get(id).setPower(dbm);
+        await (this.hub.get(id)).setPower(dbm);
         return { id, ok: true };
     }
 
     @Get(':id/info')
     async info(@Param('id') id: string, @Query('type') type: 'hw' | 'sw' | 'mfg' = 'hw') {
-        const text = await this.hub.get(id).getInfo(type);
+        const text = await (this.hub.get(id)).getInfo(type);
         return { id, type, text };
     }
 
@@ -166,7 +253,7 @@ export class JrdController {
 
     @Post(':id/scan/stop')
     async stop(@Param('id') id: string) {
-        await this.hub.get(id).stopScan();
+        await (this.hub.get(id)).stopScan();
         return { id, stopped: true };
     }
 }

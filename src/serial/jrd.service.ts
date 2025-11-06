@@ -1,13 +1,12 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { type Cache } from 'cache-manager';
+import { ScanMode } from "src/enum/scanMode.enum";
 import { Product } from "src/products/entities/product.entity";
-import { Tag } from "src/tags/entities/tag.entity";
+import { SocketGateway } from "src/socket/socket.gateway";
 import { TagsService } from "src/tags/tags.service";
 import { JrdHubService } from "./jrd-hub.service";
 import { DeviceId, JRDState, JrdStateStore, TagScan } from "./jrd-state.store";
-import { ScanMode } from "src/enum/scanMode.enum";
-import { type Cache } from 'cache-manager';
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { SocketGateway } from "src/socket/socket.gateway";
 
 export interface IjrdList {
     info: {
@@ -21,6 +20,7 @@ export interface IjrdList {
     };
     currentPower: number,
     isActive: boolean,
+    isScan: boolean,
     mode: ScanMode
 }
 
@@ -37,6 +37,7 @@ interface Scenario {
 
 @Injectable()
 export class JrdService {
+    private logger = new Logger(JrdService.name);
     private scenarios = new Map<ScenarioKey, Scenario>();
     private readonly AUTO_STOP_MS = 4 * 60 * 1000; // 4 minutes
 
@@ -54,35 +55,37 @@ export class JrdService {
     }
 
     async listAllConnectedDevice() {
-        const list = this.hub.list();
+        let list = this.hub.list();
         const out = [] as IjrdList[]
-
+        if (list.length === 0) {
+            list = this.hub.list();
+        }
         for (const dev of list) {
             try {
-                if (await this.hub.get(dev.id).ping()) {
+                if (await (this.hub.get(dev.id)).ping()) {
                     const cacheKey_hw = `modules-init-hw`;
                     const cacheKey_mfg = `modules-init-mfg`;
                     const cacheKey_sw = `modules-init-sw`;
-                    const ttlSeconds = 12000000;
+                    const ttlMiliSeconds = 86400000;
 
                     const hwText_cached = await this.cacheManager.get<string>(cacheKey_hw)
                     const mfgText_cached = await this.cacheManager.get<string>(cacheKey_mfg)
                     const swText_cached = await this.cacheManager.get<string>(cacheKey_sw)
 
-                    const hwText = hwText_cached ? hwText_cached : await this.hub.get(dev.id).getInfo("hw")
-                    const mfgText = mfgText_cached ? mfgText_cached : await this.hub.get(dev.id).getInfo("mfg")
-                    const swText = swText_cached ? swText_cached : await this.hub.get(dev.id).getInfo("sw")
+                    const hwText = hwText_cached ? hwText_cached : await (this.hub.get(dev.id)).getInfo("hw")
+                    const mfgText = mfgText_cached ? mfgText_cached : await (this.hub.get(dev.id)).getInfo("mfg")
+                    const swText = swText_cached ? swText_cached : await (this.hub.get(dev.id)).getInfo("sw")
 
                     if (!hwText_cached) {
-                        console.log('cached')
-                        await this.cacheManager.set(cacheKey_hw, hwText, ttlSeconds)
+                        await this.cacheManager.set(cacheKey_hw, hwText, ttlMiliSeconds)
                     }
-                    if (!mfgText_cached) { await this.cacheManager.set(cacheKey_mfg, mfgText, ttlSeconds) }
-                    if (!swText_cached) { await this.cacheManager.set(cacheKey_sw, swText, ttlSeconds) }
+                    if (!mfgText_cached) { await this.cacheManager.set(cacheKey_mfg, mfgText, ttlMiliSeconds) }
+                    if (!swText_cached) { await this.cacheManager.set(cacheKey_sw, swText, ttlMiliSeconds) }
 
-                    const currentPower = await this.hub.get(dev.id).getPower()
+                    const currentPower = await (this.hub.get(dev.id)).getPower()
                     const inStorePower = this.store.get(dev.id)?.power
                     const isActive = this.store.get(dev.id)?.isActive ?? false
+                    const isScan = this.store.get(dev.id)?.isScan ?? false
                     const mode = this.store.get(dev.id)?.mode ?? "Inventory"
 
                     out.push({
@@ -94,6 +97,7 @@ export class JrdService {
                         currentPower: (inStorePower && inStorePower < 15) ? inStorePower : currentPower,
                         dev,
                         isActive,
+                        isScan,
                         mode
                     })
                 }
@@ -125,8 +129,10 @@ export class JrdService {
         for (const id of ids) {
             const device = this.store.get(id);
             if (device?.isActive && device.mode === mode) {
-                await this.hub.get(id).startScan();
-                this.store.ensure(id, { mode, isScan: true });
+                try {
+                    await (this.hub.get(id)).startScan();
+                    this.store.ensure(id, { mode, isScan: true });
+                } catch (ex) { }
             }
         }
 
@@ -160,8 +166,13 @@ export class JrdService {
             if (scenario.timer) clearTimeout(scenario.timer);
 
             for (const id of scenario.ids) {
-                await this.hub.get(id).stopScan();
-                this.store.ensure(id, { mode, isScan: false });
+                try {
+                    await (this.hub.get(id)).stopScan();
+                    this.store.ensure(id, { mode, isScan: false });
+                }
+                catch (ex) {
+                    this.logger.error(`cant stop scenario. key is ${key}`)
+                }
             }
 
             this.scenarios.delete(key);
@@ -181,7 +192,7 @@ export class JrdService {
             if (scenario.timer) clearTimeout(scenario.timer);
 
             for (const id of scenario.ids) {
-                await this.hub.get(id).stopScan();
+                await (this.hub.get(id)).stopScan();
                 this.store.ensure(id, { mode, isScan: false });
             }
 
@@ -190,19 +201,6 @@ export class JrdService {
 
         this.socketGateway.emitUpdateScanStartStop(mode, this.currentScenario())
 
-        return this.listAllConnectedDevice();
-
-        const currentScenario = this.store.allStates()
-        // update server-side state + start hardware scan
-        for (const el of currentScenario) {
-            if (el.state.mode === mode) {
-                await this.hub.get(el.id).stopScan();
-                this.store.ensure(el.id, { mode, isScan: false });
-            }
-        }
-
-
-        // return canonical list so the client can commit
         return await this.listAllConnectedDevice();
     }
 
@@ -217,7 +215,6 @@ export class JrdService {
         // return canonical list so the client can commit
         return true;
     }
-
 
     async scanResult(mode: ScanMode) {
         const currentScenario = this.store.allStates()

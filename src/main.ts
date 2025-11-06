@@ -3,12 +3,21 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { env, loadEnv } from "./config/env";
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { resolveDeviceEnvVariable } from './helperFunctions/resolve-devices';
 
 
 async function bootstrap() {
   loadEnv(); // <- load dotenv before creating app
+  while (true) {
+    await resolveDeviceEnvVariable(); // <-- resolves and updates env var
+
+    console.info("JRD_DEVICES", env("JRD_DEVICES"))
+    if (env("JRD_DEVICES") !== "(none)") {
+      break
+    }
+  }
   const isProd = env("NODE_ENV") === 'production';
-  console.log("isProd", isProd)
+  console.warn("isProd", isProd)
   const app = await NestFactory.create(AppModule, { logger: isProd ? ['error'] : ['error', 'warn', 'log', 'debug', 'verbose'] });
 
   app.setGlobalPrefix('api'); // so /api/auth/* matches frontend

@@ -8,6 +8,7 @@ import { JrdStateStore } from './jrd-state.store';
 import { JrdService } from './jrd.service';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
+import { LockService } from './lock.service';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { redisStore } from 'cache-manager-redis-store';
     JrdStateStore,
     JrdService,
     TagLogService,
+    LockService
   ],
   controllers: [JrdController],
   exports: [JrdHubService]

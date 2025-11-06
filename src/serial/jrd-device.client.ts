@@ -91,32 +91,65 @@ export class JrdDeviceClient {
 
     // -------- public API (exactly your current methods) --------
     async ping() {
-        const r = await this.sendCommand('ping');
-        return r === 'pong';
+        return this.withRetry(async () => {
+            const r = await this.sendCommand('ping');
+            return r === 'pong';
+        });
     }
     async getPower(): Promise<number> {
-        const r = await this.sendCommand('get_power');
-        if (r.startsWith('power_dbm')) {
-            const v = parseFloat(r.split(/\s+/)[1]); if (!Number.isNaN(v)) return v;
-        }
-        throw new Error(`get_power failed: ${r}`);
+        return this.withRetry(async () => {
+            const r = await this.sendCommand('get_power');
+            if (r.startsWith('power_dbm')) {
+                const v = parseFloat(r.split(/\s+/)[1]); if (!Number.isNaN(v)) return v;
+            }
+            throw new Error(`get_power failed: ${r}`);
+        });
     }
     async setPower(dbm: number): Promise<void> {
-        const r = await this.sendCommand(`set_power=${Math.round(dbm)}`);
-        if (r.trim().toLowerCase() !== 'ok') throw new Error(`set_power failed: ${r}`);
+        return this.withRetry(async () => {
+            const r = await this.sendCommand(`set_power=${Math.round(dbm)}`);
+            if (r.trim().toLowerCase() !== 'ok') throw new Error(`set_power failed: ${r}`);
+        });
     }
     async getInfo(type: 'hw' | 'sw' | 'mfg' = 'hw'): Promise<string> {
-        const r = await this.sendCommand(`info=${type}`);
-        if (r.startsWith('info ')) return r.slice(5);
-        throw new Error(`info failed: ${r}`);
+        return this.withRetry(async () => {
+            const r = await this.sendCommand(`info=${type}`);
+            if (r.startsWith('info ')) return r.slice(5);
+            throw new Error(`info failed: ${r}`);
+        });
     }
     async startScan(): Promise<void> {
-        const r = await this.sendCommand('start_scan');
-        if (!/^scan_started/i.test(r)) throw new Error(`start_scan failed: ${r}`);
+        return this.withRetry(async () => {
+            const r = await this.sendCommand('start_scan');
+            if (!/^scan_started/i.test(r)) throw new Error(`start_scan failed: ${r}`);
+        });
     }
     async stopScan(): Promise<void> {
-        const r = await this.sendCommand('stop_scan');
-        if (!/^scan_stopped/i.test(r)) throw new Error(`stop_scan failed or uncertain: ${r}`);
+        return this.withRetry(async () => {
+            const r = await this.sendCommand('stop_scan');
+            if (!/^scan_stopped/i.test(r)) throw new Error(`stop_scan failed or uncertain: ${r}`);
+        });
+    }
+
+    private async withRetry<T>(
+        operation: () => Promise<T>,
+        maxRetries: number = 1
+    ): Promise<T> {
+        let lastError: Error;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await operation();
+            } catch (error) {
+                lastError = error as Error;
+                if (attempt === maxRetries) break;
+
+                // Wait 400ms before next retry
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+        }
+
+        throw lastError!;
     }
 
     // -------- reassembly & parsing (same as your code) --------

@@ -88,7 +88,7 @@ export class JrdStateStore implements OnModuleInit, OnModuleDestroy {
                 mode: 'Inventory' as const,
                 power: 15,
                 type: 'ESP32' as const,
-                isActive: false,
+                isActive: true,
                 isScan: false,
                 tagScanResults: emptyResults(),
             };

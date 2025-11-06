@@ -1,30 +1,34 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { JrdDeviceClient } from './jrd-device.client';
+import { forwardRef, Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import * as ping from 'ping';
 import { env } from "src/config/env";
-import dns from 'dns/promises';
+import { IsValidIPStrict } from 'src/helperFunctions/IsValidIpAddress';
+import { JrdDeviceClient } from './jrd-device.client';
+import { JrdStateStore } from './jrd-state.store';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { type Cache } from 'cache-manager';
+import { TagLogService } from './tag-log.service';
 
 type DeviceSpec = { id: string; host: string; port: number };
 
 @Injectable()
 export class JrdHubService implements OnModuleInit, OnModuleDestroy {
+    private logger = new Logger(JrdHubService.name);
+    public specs: DeviceSpec[]
     private devices = new Map<string, JrdDeviceClient>();
     // Add this: Readiness signal for dependents
-    public readonly initPromise: Promise<void>;
 
-    private _resolveInit?: () => void;  // Private resolver for the promise
-
-    constructor() {
-        // Initialize the promise in constructor (always pending until onModuleInit finishes)
-        this.initPromise = new Promise<void>((resolve) => {
-            this._resolveInit = resolve;
-        });
-    }
+    constructor(
+        private readonly store: JrdStateStore,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache,
+        @Inject(forwardRef(() => TagLogService))
+        private readonly tagLoggerService: TagLogService,
+    ) { }
 
     async onModuleInit() {
         // 1) static config
-        const env_ = env("JRD_DEVICES") || 'com7@192.168.43.220:33940,com8@192.168.43.181:33950';
+        const env_: string = env("JRD_DEVICES") || 'com7@192.168.43.220:33940,com8@192.168.43.181:33950';
         // Format: "id@host:port,id2@host2:port2"
-        const specs: DeviceSpec[] = env_.split(',')
+        this.specs = env_.split(',')
             .map(s => s.trim())
             .filter(Boolean)
             .map(s => {
@@ -33,25 +37,54 @@ export class JrdHubService implements OnModuleInit, OnModuleDestroy {
                 return { id: idPart || host, host, port: parseInt(portStr || '33940', 10) };
             });
 
-        const hostToIPMapper = {}
-        for (const s of specs) {
-            try {
-                const [ip] = await dns.resolve4(s.host)
-                if (ip) hostToIPMapper[s.host] = ip
-            } catch (err) { }
+        for (const spec of this.specs) {
+            this.addDevice(spec)
+        }
+    }
+
+    async pingEsp32ByDeviceId(deviceId: string) {
+
+        const cacheKey = `ping_module_${deviceId}_res`
+        const ttlMiliSeconds = 1000
+        const cached = await this.cacheManager.get<boolean>(cacheKey)
+
+        if (cached !== undefined) {
+            this.logger.debug(`cached ping of ${deviceId} have been used.`)
+            return cached
         }
 
+        const spec = this.specs.find(el => el.id === deviceId)
 
-        for (const spec of specs) {
-            if (!!hostToIPMapper[spec.host])
-                this.addDevice({ ...spec, host: hostToIPMapper[spec.host] || spec.host })
-        };
-        
-        // 2) OPTIONAL: auto-discovery via mDNS (_jrd._udp)
-        // uncomment if you want automatic adoption of new modules:
-        // this.startMdnsDiscovery();
+        if (spec) {
+            if (await (this.get(deviceId)).ping()) {
+                if (!this.devices.has(spec.id)) {
+                    this.addDevice(spec)
+                }
+                if (!this.store.has(spec.id)) {
+                    this.logger.warn(`${spec.id} added to store with ip of ${spec.host}`)
+                    this.store.ensure(spec.id)
+                }
 
-        this._resolveInit?.();
+                await this.cacheManager.set(cacheKey, true, ttlMiliSeconds)
+                return true
+            } else {
+                if (this.store.has(spec.id)) {
+                    this.store.delete(spec.id)
+                    this.logger.warn(`${spec.id} removed from store with ip of ${spec.host}`)
+                }
+            }
+            await this.cacheManager.set(cacheKey, false, ttlMiliSeconds)
+            return false
+        }
+        await this.cacheManager.set(cacheKey, false, ttlMiliSeconds)
+        return false
+    }
+
+    async reDiscoverModules() {
+        for (const spec of this.specs) {
+            await this.pingEsp32ByDeviceId(spec.id)
+        }
+        return this.list()
     }
 
     onModuleDestroy() {
@@ -59,11 +92,13 @@ export class JrdHubService implements OnModuleInit, OnModuleDestroy {
         this.devices.clear();
     }
 
-
     addDevice(spec: DeviceSpec) {
         if (this.devices.has(spec.id)) return;
         const client = new JrdDeviceClient({ id: spec.id, host: spec.host, port: spec.port, timeoutMs: parseInt(process.env.JRD_TIMEOUT_MS ?? '2500', 10) });
         this.devices.set(spec.id, client);
+        this.tagLoggerService.attachTagLogger(spec.id)
+        this.logger.warn(`${spec.id} added to Devices with ip of ${spec.host}`)
+
     }
 
     removeDevice(id: string) {
@@ -75,10 +110,15 @@ export class JrdHubService implements OnModuleInit, OnModuleDestroy {
         return [...this.devices.values()].map(d => ({ id: d.id, host: d.host, port: d.port }));
     }
 
-    get(id: string): JrdDeviceClient {
-        const d = this.devices.get(id);
-        if (!d) throw new Error(`device "${id}" not found`);
-        return d;
+    get(id: string) {
+        try {
+            const d = this.devices.get(id);
+            if (!d) throw new Error(`device "${id}" not found`);
+            return d;
+        }
+        catch (ex) {
+            throw new Error(`device "${id}" not found`);
+        }
     }
 
     // ---- OPTIONAL mDNS discovery (Bonjour) ----
