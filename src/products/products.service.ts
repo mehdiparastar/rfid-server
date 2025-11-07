@@ -1,18 +1,18 @@
-import { BadRequestException, ForbiddenException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { GoldCurrencyService } from 'src/gold-currency/gold-currency.service';
+import { createSortObject, getByPath, makeSortCondition } from 'src/helperFunctions/createSortObject';
+import { SalesService } from 'src/sales/sales.service';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { TagsService } from 'src/tags/tags.service';
-import { And, DataSource, In, LessThan, Like, MoreThan, Repository } from 'typeorm';
+import { And, DataSource, In, Like, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid'; // npm i uuid @types/uuid
 import { User } from '../users/entities/user.entity'; // Adjust path
 import { CreateProductDto } from './dto/create-product.dto';
-import { Product } from './entities/product.entity';
-import { createSortObject, getByPath, makeSortCondition } from 'src/helperFunctions/createSortObject';
-import { SalesService } from 'src/sales/sales.service';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { Product } from './entities/product.entity';
 
 export interface Cursor {
   value: string | number | Date; // type depends on your sort field
@@ -193,7 +193,7 @@ export class ProductsService {
     // 2) Authorization: owner
     const isOwner = product.createdBy.id === parseInt(user.id as any)
     if (!isOwner) {
-      throw new ForbiddenException('You are not allowed to delete this product');
+      throw new BadRequestException('You are not allowed to delete this product');
     }
 
     // 3) Referential integrity: block if there are sale items referencing it
@@ -257,7 +257,7 @@ export class ProductsService {
     // 2) Authorization: owner only
     const isOwner = product.createdBy.id === parseInt(user.id as any);
     if (!isOwner) {
-      throw new ForbiddenException('You are not allowed to update this product');
+      throw new BadRequestException('You are not allowed to update this product');
     }
 
     const isOnlyIncreasedQuantity = (updateProductDto && updateProductDto.quantity && updateProductDto.quantity > product.quantity && Object.keys(updateProductDto).length === 1) || false
