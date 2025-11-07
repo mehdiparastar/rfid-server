@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -6,6 +6,12 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) { }
+
+  @Get('search')
+  async search(@Query('q') q: string) {
+    if (!q || q.length < 2) return [];
+    return this.customersService.searchCustomers(q);
+  }
 
   @Post()
   create(@Body() createCustomerDto: CreateCustomerDto) {

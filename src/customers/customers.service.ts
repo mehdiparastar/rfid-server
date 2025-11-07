@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { Customer } from './entities/customer.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -20,7 +20,18 @@ export class CustomersService {
     if (!customer.id) await this.customersRepository.save(customer);
 
     return customer
+  }
 
+  async searchCustomers(q: string) {
+    return this.customersRepository.find({
+      where: [
+        { name: ILike(`%${q}%`) },
+        { phone: ILike(`%${q}%`) },
+        { nid: ILike(`%${q}%`) },
+      ],
+      take: 10,
+      order: { name: 'ASC' },
+    });
   }
 
   findAll() {
