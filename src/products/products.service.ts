@@ -312,6 +312,7 @@ export class ProductsService {
       if (tagsExceptions.length > 0) {
         throw new NotAcceptableException(tagsExceptions.join('\n'));
       }
+      updateProductDto.tags = tags
     }
 
     // 5) Update scalar fields (only if provided)
