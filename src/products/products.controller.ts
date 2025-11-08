@@ -101,7 +101,7 @@ export class ProductsController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAccessGuard) 
+  @UseGuards(JwtAccessGuard)
   @UseInterceptors(FileFieldsInterceptor([{ name: 'photos' }, { name: 'previews' }]))
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -117,6 +117,11 @@ export class ProductsController {
     @CurrentUser() user: Partial<User>,
   ) {
     return this.productsService.update(id, updateProductDto, files, user);
+  }
+
+  @Get('get-all-ranges')
+  async getProductsRanges() {
+    return this.productsService.getProductsRanges()
   }
 
 }

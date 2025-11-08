@@ -7,7 +7,7 @@ import { createSortObject, getByPath, makeSortCondition } from 'src/helperFuncti
 import { SalesService } from 'src/sales/sales.service';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { TagsService } from 'src/tags/tags.service';
-import { And, DataSource, In, Like, Repository } from 'typeorm';
+import { And, DataSource, In, LessThanOrEqual, Like, MoreThanOrEqual, Raw, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid'; // npm i uuid @types/uuid
 import { User } from '../users/entities/user.entity'; // Adjust path
 import { CreateProductDto } from './dto/create-product.dto';
@@ -122,6 +122,12 @@ export class ProductsService {
   }: GetAllProductsOptions) {
 
     const qFilterValue = filters['q']
+    const weightRangeValue = filters['weightRange']
+    const makingChargeRangeValue = filters['makingChargeRange']
+    const profitRangeValue = filters['profitRange']
+    const priceRangeValue = filters['priceRange']
+
+    const currentCurrency = (await this.goldCurrencyService.getGoldCurrencyData()).gold
 
     const sortCondition = makeSortCondition(sortField, sortDirection, cursor)
 
@@ -129,37 +135,92 @@ export class ProductsService {
     const secondSortLevel = (sortDirection === 'asc' ? { id: 'ASC' } : { id: 'DESC' }) as any
     const order = { ...createSortObject(sortField, sortDirection), ...secondSortLevel }
 
+    const currencyCase = `
+      CASE Product.subType
+        ${currentCurrency.map(c => `WHEN '${c.symbol}' THEN ${c.price}`).join(' ')}
+        ELSE 1
+      END
+    `;
+
+    const minPrice = priceRangeValue?.min
+    const maxPrice = priceRangeValue?.max
+
+    const whereQuery = [
+      ...sortCondition
+        .map(el => ({
+          ...el,
+          name: el?.["name"] ?
+            And(Like(`%${qFilterValue}%`), el?.["name"]) :
+            Like(`%${qFilterValue}%`),
+          ...(!!weightRangeValue ? { weight: And(LessThanOrEqual(weightRangeValue.max), MoreThanOrEqual(weightRangeValue.min)) } : {}),
+          ...(!!makingChargeRangeValue ? { makingCharge: And(LessThanOrEqual(makingChargeRangeValue.max), MoreThanOrEqual(makingChargeRangeValue.min)) } : {}),
+          ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
+          ...(!!priceRangeValue ? {
+            id: Raw(() => `
+              :minPrice <= (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10
+              AND (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10 <= :maxPrice
+            `, { minPrice, maxPrice }),
+          } : {}),
+        })),
+      ...sortCondition
+        .map(el => ({
+          ...el,
+          saleItems: {
+            invoice: {
+              customer: {
+                name: el?.["saleItems"]?.["invoice"]?.["customer"]?.["name"] ?
+                  And(Like(`%${qFilterValue}%`), el?.["saleItems"]?.["invoice"]?.["customer"]?.["name"]) :
+                  Like(`%${qFilterValue}%`)
+              }
+            }
+          },
+          ...(!!weightRangeValue ? { weight: And(LessThanOrEqual(weightRangeValue.max), MoreThanOrEqual(weightRangeValue.min)) } : {}),
+          ...(!!makingChargeRangeValue ? { makingCharge: And(LessThanOrEqual(makingChargeRangeValue.max), MoreThanOrEqual(makingChargeRangeValue.min)) } : {}),
+          ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
+          ...(!!priceRangeValue ? {
+            id: Raw(() => `
+              :minPrice <= (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10
+              AND (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10 <= :maxPrice
+            `, { minPrice, maxPrice }),
+          } : {}),
+        })),
+    ]
 
     const [items, total] = await this.productsRepository.findAndCount(
       {
         relations: { saleItems: { invoice: { customer: true } }, tags: true, createdBy: true },
-        where: [
-          ...sortCondition
-            .map(el => ({
-              ...el,
-              name: el?.["name"] ?
-                And(Like(`%${qFilterValue}%`), el?.["name"]) :
-                Like(`%${qFilterValue}%`)
-
-            })),
-          ...sortCondition
-            .map(el => ({
-              ...el,
-              saleItems: {
-                invoice: {
-                  customer: {
-                    name: el?.["saleItems"]?.["invoice"]?.["customer"]?.["name"] ?
-                      And(Like(`%${qFilterValue}%`), el?.["saleItems"]?.["invoice"]?.["customer"]?.["name"]) :
-                      Like(`%${qFilterValue}%`)
-                  }
-                }
-              }
-            })),
-        ],
+        where: whereQuery,
         order: order,
         take: limit
       }
     )
+
+    const [
+      maxWeight,
+      minWeight,
+      maxProfit,
+      minProfit,
+      maxMakingCharge,
+      minMakingCharge,
+      allProducts
+    ] = await Promise.all([
+      this.productsRepository.maximum("weight", whereQuery),
+      this.productsRepository.minimum("weight", whereQuery),
+      this.productsRepository.maximum("profit", whereQuery),
+      this.productsRepository.minimum("profit", whereQuery),
+      this.productsRepository.maximum("makingCharge", whereQuery),
+      this.productsRepository.minimum("makingCharge", whereQuery),
+      this.productsRepository.find({
+        relations: { saleItems: { invoice: { customer: true } }, tags: true, createdBy: true },
+        where: whereQuery,
+        select: { id: true, saleItems: { invoice: { customer: false }, quantity: true }, subType: true, profit: true, vat: true, makingCharge: true, weight: true, tags: false, createdBy: false },
+      }),
+    ])
+
+
+    const prices = allProducts.map(el => ({ subType: el.subType, weight: el.weight, profit: el.profit, makingCharge: el.makingCharge, vat: el.vat, price: (1 + (el.profit + el.makingCharge + el.vat) / 100) * el.weight * 10 * currentCurrency.find(it => el.subType === it.symbol).price })).sort((a, b) => a.price - b.price)
+    const minPrices = [prices[0] || -1, prices[1] || -1]
+    const maxPrices = [prices[prices.length - 1] || -1, prices[prices.length - 2] || -1]
 
     // Compute next cursor (based on last item's sortField and createdAt)
     const nextCursor =
@@ -171,7 +232,35 @@ export class ProductsService {
         }
         : null;
 
-    return { items, nextCursor, total };
+    return {
+      items,
+      nextCursor,
+      total,
+      ranges: {
+        weight: { min: minWeight || -1, max: maxWeight || -1 },
+        profit: { min: minProfit || -1, max: maxProfit || -1 },
+        makingCharge: { min: minMakingCharge || -1, max: maxMakingCharge || -1 },
+        price: { min: minPrices, max: maxPrices },
+      }
+    };
+  }
+
+  async getProductsRanges() {
+    const maxWeight = await this.productsRepository.maximum("weight")
+    const minWeight = await this.productsRepository.minimum("weight")
+
+    const maxProfit = await this.productsRepository.minimum("profit")
+    const minProfit = await this.productsRepository.minimum("profit")
+
+    const maxMakingCharge = await this.productsRepository.minimum("makingCharge")
+    const minMakingCharge = await this.productsRepository.minimum("makingCharge")
+
+    return {
+      weight: [minWeight, maxWeight],
+      profit: [minProfit, maxProfit],
+      makingCharge: [minMakingCharge, maxMakingCharge],
+    }
+
   }
 
   async getProductsByIds(ids: number[]) {
