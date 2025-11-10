@@ -95,7 +95,7 @@ export class SalesService {
             (makingCharge / 100 * sale_items.quantity * spotPrice * weight) soldMakingChargePrice,
             sale_items.quantity soldQuantity,
             invoiceId
-          FROM dev_rfid.products
+          FROM products
           left join sale_items
           on products.id=sale_items.productId AND sale_items.createdAt BETWEEN ? AND ?
         ) tbl
@@ -142,7 +142,7 @@ export class SalesService {
             (makingCharge / 100 * sale_items.quantity * spotPrice * weight) soldMakingChargePrice,
             sale_items.quantity soldQuantity,
             invoiceId
-          FROM dev_rfid.products
+          FROM products
           left join sale_items
           on products.id=sale_items.productId AND sale_items.createdAt BETWEEN ? AND ?
         ) tbl
@@ -190,7 +190,7 @@ export class SalesService {
             (makingCharge / 100 * sale_items.quantity * spotPrice * weight) soldMakingChargePrice,
             sale_items.quantity soldQuantity,
             invoiceId
-          FROM dev_rfid.products
+          FROM products
           left join sale_items
           on products.id=sale_items.productId AND sale_items.createdAt BETWEEN ? AND ?
         ) tbl
