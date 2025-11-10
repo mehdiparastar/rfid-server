@@ -8,9 +8,11 @@ import { SalesService } from './sales.service';
 import { CustomersModule } from 'src/customers/customers.module';
 import { InvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoice.service';
+import { Product } from 'src/products/entities/product.entity';
+import { Customer } from 'src/customers/entities/customer.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SaleItem, Invoice]), GoldCurrencyModule, CustomersModule],
+  imports: [TypeOrmModule.forFeature([SaleItem, Invoice, Product, Customer]), GoldCurrencyModule, CustomersModule],
   controllers: [SalesController, InvoicesController],
   providers: [SalesService, InvoicesService],
   exports: [SalesService]

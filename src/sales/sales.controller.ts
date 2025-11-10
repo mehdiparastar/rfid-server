@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { User } from 'src/users/entities/user.entity';
 import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
+
+export type PeriodType = 'day' | 'month' | '6months' | 'year';
 
 @Controller('sales')
 export class SalesController {
@@ -19,6 +21,11 @@ export class SalesController {
   @Get()
   findAll() {
     return this.salesService.findAll();
+  }
+
+  @Get('stats')
+  async getStats(@Query('period') period: PeriodType = 'day') {
+    return this.salesService.getStats(period);
   }
 
   @Get(':id')
