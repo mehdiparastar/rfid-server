@@ -12,4 +12,12 @@ declare namespace NodeJS {
         JWT_ACCESS_EXPIRATION_TIME: '10s' | '20s' | '60s';
         JWT_REFRESH_EXPIRATION_TIME: '30s' | '60s' | '900s' | '1500s' | '3000s';
     }
+
+    interface Process {
+        pkg?: {
+            entrypoint: string;
+            defaultEntrypoint: string;
+            path: string;
+        };
+    }
 }

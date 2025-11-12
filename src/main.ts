@@ -1,3 +1,12 @@
+
+import * as crypto from "crypto"; // ensure crypto is loaded
+// (global as any).crypto = crypto; // make it globally available
+Object.defineProperty(global, 'crypto', {
+  value: crypto,
+  writable: true,
+  configurable: true, // Optional: Allows redefinition later
+});
+
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -7,6 +16,7 @@ import { resolveDeviceEnvVariable } from './helperFunctions/resolve-devices';
 
 
 async function bootstrap() {
+  console.log(`You are here: ${process.cwd()}`)
   loadEnv(); // <- load dotenv before creating app
   while (true) {
     await resolveDeviceEnvVariable(); // <-- resolves and updates env var

@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { rm } from 'fs/promises';
 import * as path from 'path';
 import { env } from 'src/config/env';
+import { backup_path, extract_dir, temp_dir, uploads_root } from 'src/helperFunctions/paths';
 import { SocketGateway } from 'src/socket/socket.gateway';
 import { User } from 'src/users/entities/user.entity';
 
@@ -19,9 +20,9 @@ export class DbOperationsService {
     constructor(
         private readonly socketGateway: SocketGateway,
     ) {
-        this.backupPath = path.join(process.cwd(), 'backups');
-        this.tempDir = path.join(process.cwd(), 'temp');
-        this.extractDir = path.join(process.cwd(), 'restores');
+        this.backupPath = backup_path // path.join(process.cwd(), 'backups');
+        this.tempDir = temp_dir //path.join(process.cwd(), 'temp');
+        this.extractDir = extract_dir //path.join(process.cwd(), 'restores');
     }
 
 
@@ -57,13 +58,39 @@ export class DbOperationsService {
     }
 
     getDirectorySize(dirPath: string): number | null {
-        try {
-            const output = execSync(`du -sb "${dirPath}"`, { encoding: 'utf-8' });
-            const sizeInBytes = parseInt(output.trim().split('\t')[0], 10);
-            return sizeInBytes / (1024 * 1024); // Return size in MB
-        } catch (error) {
-            this.logger.error('Error getting directory size:', error.message);
-            return null;
+        const isPkg = !!process.pkg;
+        if (!isPkg) {
+            try {
+                const output = execSync(`du -sb "${dirPath}"`, { encoding: 'utf-8' });
+                const sizeInBytes = parseInt(output.trim().split('\t')[0], 10);
+                return sizeInBytes / (1024 * 1024); // Return size in MB
+            } catch (error) {
+                this.logger.error('Error getting directory size:', error.message);
+                return null;
+            }
+        } else {
+            try {
+                let totalSize = 0;
+
+                const calculateSize = (dir: string) => {
+                    const files = fs.readdirSync(dir, { withFileTypes: true });
+                    for (const file of files) {
+                        const fullPath = path.join(dir, file.name);
+                        if (file.isDirectory()) {
+                            calculateSize(fullPath);
+                        } else {
+                            const stats = fs.statSync(fullPath);
+                            totalSize += stats.size;
+                        }
+                    }
+                };
+
+                calculateSize(dirPath);
+                return totalSize / (1024 * 1024); // Return size in MB
+            } catch (error: any) {
+                this.logger.error('Error getting directory size:', error.message);
+                return null;
+            }
         }
     }
 
@@ -137,7 +164,7 @@ export class DbOperationsService {
                 fs.mkdirSync(this.backupPath);
             }
 
-            const uploadsPath = path.join(process.cwd(), 'uploads');
+            const uploadsPath = uploads_root // path.join(process.cwd(), 'uploads');
             if (!fs.existsSync(uploadsPath)) {
                 reject(new InternalServerErrorException('Uploads directory does not exist.'));
                 return;
@@ -406,7 +433,7 @@ export class DbOperationsService {
                 const dbFilesZipFilePath = path.join(extractPath, dbFilesZipFileName)
                 const zip = new AdmZip(dbFilesZipFilePath);
 
-                const uploadsPath = path.join(process.cwd(), 'uploads');
+                const uploadsPath = uploads_root // path.join(process.cwd(), 'uploads');
                 await this.deleteDirectory(uploadsPath)
 
                 const entries = zip.getEntries();

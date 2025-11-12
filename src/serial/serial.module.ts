@@ -16,7 +16,7 @@ import { LockService } from './lock.service';
       useFactory: async () => ({
         store: await redisStore({
           socket: {
-            host: 'localhost',  // Local Redis on M2 Berry
+            host: '127.0.0.1',  // Local Redis on M2 Berry
             port: 6379,
           },
           ttl: 120,  // Your 2-min default

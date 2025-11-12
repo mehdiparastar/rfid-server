@@ -13,10 +13,10 @@ export class Tag {
     @Column('int', { nullable: false })
     rssi: number;  // RSSI value (signal strength)
 
-    @Column('int', { nullable: false })
+    @Column('int', { nullable: false, default: 0 })
     pc: number;
 
-    @Column('int', { nullable: false })
+    @Column('int', { nullable: false, default: 0 })
     pl: number;
 
     @ManyToMany(() => Product, product => product.tags)

@@ -103,5 +103,22 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "bin": "dist/main.js",
+  "pkg": {
+    "assets": [
+      "dist/**/*",
+      "node_modules/axios/dist/**/*",
+      ".env.production"
+    ],
+    "scripts": [
+      "dist/**/*.js"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "config": {
+      "public": false
+    }
   }
 }

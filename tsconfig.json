@@ -28,6 +28,7 @@
   },
   "include": [
     "src/**/*",
-    "src/types/**/*" // Make sure types are included
+    "src/types/**/*", // Make sure types are included
+    "env.d.ts"
   ]
 }

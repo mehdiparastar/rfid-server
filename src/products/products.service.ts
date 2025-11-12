@@ -13,6 +13,7 @@ import { User } from '../users/entities/user.entity'; // Adjust path
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
+import { uploads_root } from 'src/helperFunctions/paths';
 
 export interface Cursor {
   value: string | number | Date; // type depends on your sort field
@@ -93,7 +94,7 @@ export class ProductsService {
   private async uploadFiles(files: Express.Multer.File[], folder: string): Promise<string[]> {
     if (files.length === 0) return [];
 
-    const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
+    const uploadDir = path.join(uploads_root, folder)//path.join(__dirname, '..', '..', 'uploads', folder);
     await fs.mkdir(uploadDir, { recursive: true });
 
     const paths: string[] = [];
@@ -460,7 +461,7 @@ export class ProductsService {
     const abs = path.join(process.cwd(), rel);
 
     // Guard: only allow deletion inside /uploads/*
-    const uploadsRoot = path.join(process.cwd(), 'uploads');
+    const uploadsRoot = uploads_root // path.join(process.cwd(), 'uploads');
     const insideUploads = abs.startsWith(uploadsRoot + path.sep) || abs === uploadsRoot;
     if (!insideUploads) {
       // refuse to touch any path outside uploads

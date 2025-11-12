@@ -1,5 +1,6 @@
 # compiled output
 /dist
+/dist-obf
 /node_modules
 /build
 /uploads/photos
@@ -13,6 +14,7 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+*.exe
 
 # OS
 .DS_Store

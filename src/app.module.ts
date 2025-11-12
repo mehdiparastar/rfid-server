@@ -15,12 +15,12 @@ import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
 import { GoldCurrencyModule } from './gold-currency/gold-currency.module';
 import { DbOperationsModule } from './db-operations/db-operations.module';
-
+import { uploads_root } from './helperFunctions/paths';
 
 @Module({
-  imports: [    
+  imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
+      rootPath: uploads_root,// join(__dirname, '..', 'uploads'),
       serveRoot: '/api/uploads', // add `/api` prefix
     }),
     DatabaseModule,  // <- configure DB first
