@@ -60,7 +60,7 @@ export class ProductsController {
       }
     }
 
-    return this.productsService.getAllProducts({
+    return await this.productsService.getAllProducts({
       cursor: parsedCursor,
       limit,
       sortField,

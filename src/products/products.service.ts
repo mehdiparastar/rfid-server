@@ -14,6 +14,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { uploads_root } from 'src/helperFunctions/paths';
+import { calculateGoldPrice } from 'src/helperFunctions/calculateGoldPrice';
 
 export interface Cursor {
   value: string | number | Date; // type depends on your sort field
@@ -158,8 +159,8 @@ export class ProductsService {
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
             id: Raw(() => `
-              :minPrice <= (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10
-              AND (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10 <= :maxPrice
+              :minPrice <= Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10
+              AND Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -180,8 +181,8 @@ export class ProductsService {
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
             id: Raw(() => `
-              :minPrice <= (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10
-              AND (1 + ((Product.vat + Product.profit + Product.makingCharge) / 100)) * Product.weight * ${currencyCase} * 10 <= :maxPrice
+              :minPrice <= Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10
+              AND Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -219,9 +220,9 @@ export class ProductsService {
     ])
 
 
-    const prices = allProducts.map(el => ({ subType: el.subType, weight: el.weight, profit: el.profit, makingCharge: el.makingCharge, vat: el.vat, price: (1 + (el.profit + el.makingCharge + el.vat) / 100) * el.weight * 10 * currentCurrency.find(it => el.subType === it.symbol).price })).sort((a, b) => a.price - b.price)
-    const minPrices = [prices[0] || -1, prices[1] || -1]
-    const maxPrices = [prices[prices.length - 1] || -1, prices[prices.length - 2] || -1]
+    const prices = allProducts.map(el => ({ subType: el.subType, weight: el.weight, profit: el.profit, makingCharge: el.makingCharge, vat: el.vat, price: calculateGoldPrice(el.weight, el.makingCharge, el.profit, el.vat, 10 * currentCurrency.find(it => el.subType === it.symbol).price) || 0 })).sort((a, b) => a.price - b.price)
+    const minPrices = [prices[0] ?? -1, prices[1] ?? -1]
+    const maxPrices = [prices[prices.length - 1] ?? -1, prices[prices.length - 2] ?? -1]
 
     // Compute next cursor (based on last item's sortField and createdAt)
     const nextCursor =
@@ -238,9 +239,9 @@ export class ProductsService {
       nextCursor,
       total,
       ranges: {
-        weight: { min: minWeight || -1, max: maxWeight || -1 },
-        profit: { min: minProfit || -1, max: maxProfit || -1 },
-        makingCharge: { min: minMakingCharge || -1, max: maxMakingCharge || -1 },
+        weight: { min: minWeight ?? -1, max: maxWeight ?? -1 },
+        profit: { min: minProfit ?? -1, max: maxProfit ?? -1 },
+        makingCharge: { min: minMakingCharge ?? -1, max: maxMakingCharge ?? -1 },
         price: { min: minPrices, max: maxPrices },
       }
     };
@@ -380,8 +381,8 @@ export class ProductsService {
           tag = await this.tagsService.create({
             epc: tagDto.epc,
             rssi: tagDto.rssi,
-            pl: tagDto.pl || 0,
-            pc: tagDto.pc || 0,
+            pl: tagDto.pl ?? 0,
+            pc: tagDto.pc ?? 0,
             createdBy: user,
           });
         } else {

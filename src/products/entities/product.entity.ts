@@ -4,14 +4,13 @@ import { User } from "src/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { GOLD_PRODUCT_SUB_TYPES, GOLD_PRODUCT_TYPES, type GoldProductSUBType, type GoldProductType } from "../dto/create-product.dto";
 
-const goldSubTypes = []
 
 @Entity('products')
 export class Product {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column('varchar', { nullable: false, unique: true })
+    @Column('varchar', { nullable: false, unique: false })
     name: string
 
     @Column('simple-array', { nullable: true })
@@ -42,7 +41,7 @@ export class Product {
     @Column('tinyint', { unsigned: true, width: 3, default: 2, nullable: false })
     makingCharge: number; // 0..255; Charge for making the product
 
-    @Column('tinyint', { unsigned: true, width: 3, default: 10, nullable: false })
+    @Column('tinyint', { unsigned: true, width: 3, default: 2, nullable: false })
     vat: number;  // vat for making the product
 
     @Column('tinyint', { unsigned: true, width: 3, default: 7, nullable: false })
