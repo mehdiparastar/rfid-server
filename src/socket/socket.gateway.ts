@@ -5,14 +5,13 @@ import { Server, Socket } from 'socket.io';
 import { Roles } from 'src/authorization/roles.decorator';
 import { RolesGuard } from 'src/authorization/roles.guard';
 import { env } from 'src/config/env';
+import { ScanMode } from 'src/enum/scanMode.enum';
 import { UserRoles } from 'src/enum/userRoles.enum';
-import { extractTokenFromCookie, WsJwtAccessGuard } from './ws-jwt-access.guard';
-import { TagsService } from 'src/tags/tags.service';
 import { Product } from 'src/products/entities/product.entity';
 import { DeviceId, JRDState, TagScan } from 'src/serial/jrd-state.store';
-import { ScanMode } from 'src/enum/scanMode.enum';
+import { TagsService } from 'src/tags/tags.service';
 import { User } from 'src/users/entities/user.entity';
-import { IjrdList } from 'src/serial/jrd.service';
+import { extractTokenFromCookie, WsJwtAccessGuard } from './ws-jwt-access.guard';
 
 @Injectable()
 @WebSocketGateway({

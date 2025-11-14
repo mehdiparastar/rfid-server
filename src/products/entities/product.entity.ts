@@ -19,7 +19,10 @@ export class Product {
     @Column('simple-array', { nullable: true })
     previews: string[];  // Local file paths for preview images
 
-    @Column('decimal', { precision: 10, scale: 2, nullable: false })
+    @Column('smallint', { unsigned: true, default: 750 })
+    karat: number;  // Allowed range: 0–1000
+
+    @Column('decimal', { precision: 10, scale: 3, nullable: false })
     weight: number;  // In grams or kilograms, depending on your unit system
 
     @Column({ type: 'enum', enum: GOLD_PRODUCT_TYPES, nullable: false })

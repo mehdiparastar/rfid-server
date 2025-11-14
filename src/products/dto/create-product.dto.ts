@@ -218,6 +218,10 @@ export class CreateProductDto {
 
     @Transform(({ value }) => parseFloat(value))
     @IsNumber()
+    karat: number;
+
+    @Transform(({ value }) => parseFloat(value))
+    @IsNumber()
     weight: number;
 
     @IsString()

@@ -130,7 +130,6 @@ export class ProductsService {
     const priceRangeValue = filters['priceRange']
 
     const currentCurrency = (await this.goldCurrencyService.getGoldCurrencyData()).gold
-
     const sortCondition = makeSortCondition(sortField, sortDirection, cursor)
 
     // const secondSortLevel_ = (sortField !== 'createdAt') ? (sortDirection === 'asc' ? { createdAt: 'ASC' } : { createdAt: 'DESC' }) : {} as any
@@ -140,7 +139,14 @@ export class ProductsService {
     const currencyCase = `
       CASE Product.subType
         ${currentCurrency.map(c => `WHEN '${c.symbol}' THEN ${c.price}`).join(' ')}
-        ELSE 1
+        ELSE 0
+      END
+    `;
+
+    const karatCase = `
+      CASE Product.subType
+        ${currentCurrency.map(c => `WHEN '${c.symbol}' THEN ${c.karat}`).join(' ')}
+        ELSE 0
       END
     `;
 
@@ -158,9 +164,10 @@ export class ProductsService {
           ...(!!makingChargeRangeValue ? { makingCharge: And(LessThanOrEqual(makingChargeRangeValue.max), MoreThanOrEqual(makingChargeRangeValue.min)) } : {}),
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
+            // calculateGoldPrice
             id: Raw(() => `
-              :minPrice <= Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10
-              AND Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
+              :minPrice <= Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10  
+              AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -180,9 +187,10 @@ export class ProductsService {
           ...(!!makingChargeRangeValue ? { makingCharge: And(LessThanOrEqual(makingChargeRangeValue.max), MoreThanOrEqual(makingChargeRangeValue.min)) } : {}),
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
+            // calculateGoldPrice
             id: Raw(() => `
-              :minPrice <= Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10
-              AND Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
+              :minPrice <= Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10
+              AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -215,12 +223,31 @@ export class ProductsService {
       this.productsRepository.find({
         relations: { saleItems: { invoice: { customer: true } }, tags: true, createdBy: true },
         where: whereQuery,
-        select: { id: true, saleItems: { invoice: { customer: false }, quantity: true }, subType: true, profit: true, vat: true, makingCharge: true, weight: true, tags: false, createdBy: false },
+        select: { id: true, saleItems: { invoice: { customer: false }, quantity: true }, karat: true, subType: true, profit: true, vat: true, makingCharge: true, weight: true, tags: false, createdBy: false },
       }),
     ])
 
 
-    const prices = allProducts.map(el => ({ subType: el.subType, weight: el.weight, profit: el.profit, makingCharge: el.makingCharge, vat: el.vat, price: calculateGoldPrice(el.weight, el.makingCharge, el.profit, el.vat, 10 * currentCurrency.find(it => el.subType === it.symbol).price) || 0 })).sort((a, b) => a.price - b.price)
+    const prices = allProducts.map(el => ({
+      karat: el.karat,
+      subType: el.subType,
+      weight: el.weight,
+      profit: el.profit,
+      makingCharge: el.makingCharge,
+      vat: el.vat,
+      price: calculateGoldPrice(
+        el.karat,
+        el.weight,
+        el.makingCharge,
+        el.profit,
+        el.vat,
+        {
+          price: 10 * (currentCurrency.find(it => el.subType === it.symbol)?.price || 0),
+          karat: currentCurrency.find(it => el.subType === it.symbol)?.karat || 0,
+        }
+      ) || 0
+    })).sort((a, b) => a.price - b.price)
+
     const minPrices = [prices[0] ?? -1, prices[1] ?? -1]
     const maxPrices = [prices[prices.length - 1] ?? -1, prices[prices.length - 2] ?? -1]
 
@@ -482,6 +509,4 @@ export class ProductsService {
       }
     }
   }
-
-
 }
