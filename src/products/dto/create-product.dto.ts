@@ -15,6 +15,8 @@ export const GOLD_PRODUCT_TYPES = [
     'Piercing',
     'Medal',
     'Coin',
+    'FullSet',
+    'HalfSet',
     'Others',
 ] as const;
 export type GoldProductType = typeof GOLD_PRODUCT_TYPES[number];

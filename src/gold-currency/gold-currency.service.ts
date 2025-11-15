@@ -56,7 +56,9 @@ const assignKarat = (goldItem: GoldItem) => {
         })
     }
     if (goldItem.symbol.includes("MELTED")) return ({ ...goldItem, karat: 750, price: Math.round(goldItem.price / 4.3318) })
-    return ({ ...goldItem, karat: 995, price: goldItem.symbol === "XAUUSD" ? goldItem.price / 28.3495 : goldItem.price })
+    if (goldItem.symbol.includes("XAUUSD")) return ({ ...goldItem, karat: 995, price: Math.round(goldItem.price / 28.3495) })
+
+    return ({ ...goldItem, karat: 750 })
 }
 
 @Injectable()
