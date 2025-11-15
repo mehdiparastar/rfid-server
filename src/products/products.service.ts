@@ -3,7 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { GoldCurrencyService } from 'src/gold-currency/gold-currency.service';
+import { calculateGoldPrice } from 'src/helperFunctions/calculateGoldPrice';
 import { createSortObject, getByPath, makeSortCondition } from 'src/helperFunctions/createSortObject';
+import { uploads_root } from 'src/helperFunctions/paths';
 import { SalesService } from 'src/sales/sales.service';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { TagsService } from 'src/tags/tags.service';
@@ -13,8 +15,6 @@ import { User } from '../users/entities/user.entity'; // Adjust path
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
-import { uploads_root } from 'src/helperFunctions/paths';
-import { calculateGoldPrice } from 'src/helperFunctions/calculateGoldPrice';
 
 export interface Cursor {
   value: string | number | Date; // type depends on your sort field
