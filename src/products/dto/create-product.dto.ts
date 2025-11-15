@@ -1,5 +1,5 @@
-import { IsArray, IsBoolean, IsBooleanString, IsIn, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Transform } from 'class-transformer';
+import { IsArray, IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
 
 // Predefined gold product types
 export const GOLD_PRODUCT_TYPES = [
@@ -137,6 +137,21 @@ export const GOLD_PRODUCT_SUB_TYPES =
             symbol: "IR_PCOIN_100MG",
             name: "سکه 100 سوتی پارسیان",
             name_en: "100mg Parsian Coin",
+        },
+        {
+            symbol: "IR_PCOIN_70MG",
+            name: "سکه 70 سوتی پارسیان",
+            name_en: "70mg Parsian Coin",
+        },
+        {
+            symbol: "IR_PCOIN_50MG",
+            name: "سکه 50 سوتی پارسیان",
+            name_en: "50mg Parsian Coin",
+        },
+        {
+            symbol: "IR_PCOIN_30MG",
+            name: "سکه 30 سوتی پارسیان",
+            name_en: "30mg Parsian Coin",
         },
         {
             symbol: "XAUUSD",

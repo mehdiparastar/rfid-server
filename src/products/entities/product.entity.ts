@@ -41,13 +41,14 @@ export class Product {
     @Column('int', { nullable: false, default: 1 })
     quantity: number;  // Available quantity of the product
 
-    @Column('tinyint', { unsigned: true, width: 3, default: 2, nullable: false })
+
+    @Column('decimal', { precision: 10, scale: 1, default: 17, nullable: false })
     makingCharge: number; // 0..255; Charge for making the product
 
-    @Column('tinyint', { unsigned: true, width: 3, default: 2, nullable: false })
+    @Column('decimal', { precision: 10, scale: 1, default: 2, nullable: false })
     vat: number;  // vat for making the product
 
-    @Column('tinyint', { unsigned: true, width: 3, default: 7, nullable: false })
+    @Column('decimal', { precision: 10, scale: 1, default: 7, nullable: false })
     profit: number;  // profit for making the product
 
     @ManyToMany(() => Tag, tag => tag.products)  // Many-to-many relation with tags

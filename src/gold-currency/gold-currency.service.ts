@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
-import { GoldProductSUBType } from '../products/dto/create-product.dto'
+import { GoldProductSUBType } from '../products/dto/create-product.dto';
 
 export type GoldItem = {
     change_value: number;
@@ -52,7 +51,10 @@ const assignKarat = (goldItem: GoldItem) => {
                                                                 goldItem.symbol === "IR_PCOIN_300MG" ? goldItem.price / 0.30 :
                                                                     goldItem.symbol === "IR_PCOIN_200MG" ? goldItem.price / 0.20 :
                                                                         goldItem.symbol === "IR_PCOIN_100MG" ? goldItem.price / 0.10 :
-                                                                            goldItem.price
+                                                                            goldItem.symbol === "IR_PCOIN_70MG" ? goldItem.price / 0.070 :
+                                                                                goldItem.symbol === "IR_PCOIN_50MG" ? goldItem.price / 0.050 :
+                                                                                    goldItem.symbol === "IR_PCOIN_30MG" ? goldItem.price / 0.030 :
+                                                                                        goldItem.price
         })
     }
     if (goldItem.symbol.includes("MELTED")) return ({ ...goldItem, karat: 750, price: Math.round(goldItem.price / 4.3318) })
@@ -78,7 +80,6 @@ export class GoldCurrencyService {
 
         try {
             // Fetch new data from API
-            // const response_ = await firstValueFrom(this.httpService.get(this.API_URL_));
             const response = await firstValueFrom(this.httpService.get(this.API_URL));
             // const data_ = { gold: response_.data.gold };
             const data = {
@@ -87,14 +88,42 @@ export class GoldCurrencyService {
                     ...response.data.gold.coin,
                     ...response.data.gold.coin_parsian,
                     ...response.data.gold.ounce,
-                ].map(el => assignKarat(el))
+                ]
             };
 
 
 
             // Update cache
             this.cache = {
-                data,
+                data: {
+                    gold: [
+                        ...data.gold,
+                        {
+                            ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
+                            name: 'سکه 70 سوتی پارسیان',
+                            name_en: '70mg Parsian Coin',
+                            price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.7,
+                            change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.7,
+                            symbol: 'IR_PCOIN_70MG'
+                        },
+                        {
+                            ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
+                            name: 'سکه 50 سوتی پارسیان',
+                            name_en: '50mg Parsian Coin',
+                            price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.5,
+                            change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.5,
+                            symbol: 'IR_PCOIN_50MG'
+                        },
+                        {
+                            ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
+                            name: 'سکه 30 سوتی پارسیان',
+                            name_en: '30mg Parsian Coin',
+                            price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.3,
+                            change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.3,
+                            symbol: 'IR_PCOIN_30MG'
+                        },
+                    ].map(el => assignKarat(el))
+                },
                 timestamp: Date.now(),
             };
 
