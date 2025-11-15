@@ -82,7 +82,7 @@ export class GoldCurrencyService {
             // Fetch new data from API
             const response = await firstValueFrom(this.httpService.get(this.API_URL));
             // const data_ = { gold: response_.data.gold };
-            const data = {
+            let data = {
                 gold: [
                     ...response.data.gold.type,
                     ...response.data.gold.coin,
@@ -91,39 +91,39 @@ export class GoldCurrencyService {
                 ]
             };
 
-
+            data = {
+                gold: [
+                    ...data.gold,
+                    {
+                        ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
+                        name: 'سکه 70 سوتی پارسیان',
+                        name_en: '70mg Parsian Coin',
+                        price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.7,
+                        change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.7,
+                        symbol: 'IR_PCOIN_70MG'
+                    },
+                    {
+                        ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
+                        name: 'سکه 50 سوتی پارسیان',
+                        name_en: '50mg Parsian Coin',
+                        price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.5,
+                        change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.5,
+                        symbol: 'IR_PCOIN_50MG'
+                    },
+                    {
+                        ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
+                        name: 'سکه 30 سوتی پارسیان',
+                        name_en: '30mg Parsian Coin',
+                        price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.3,
+                        change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.3,
+                        symbol: 'IR_PCOIN_30MG'
+                    },
+                ].map(el => assignKarat(el))
+            }
 
             // Update cache
             this.cache = {
-                data: {
-                    gold: [
-                        ...data.gold,
-                        {
-                            ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
-                            name: 'سکه 70 سوتی پارسیان',
-                            name_en: '70mg Parsian Coin',
-                            price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.7,
-                            change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.7,
-                            symbol: 'IR_PCOIN_70MG'
-                        },
-                        {
-                            ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
-                            name: 'سکه 50 سوتی پارسیان',
-                            name_en: '50mg Parsian Coin',
-                            price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.5,
-                            change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.5,
-                            symbol: 'IR_PCOIN_50MG'
-                        },
-                        {
-                            ...data.gold.find(el => el.symbol === "IR_PCOIN_100MG"),
-                            name: 'سکه 30 سوتی پارسیان',
-                            name_en: '30mg Parsian Coin',
-                            price: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.price || 0) * 0.3,
-                            change_value: (data.gold.find(el => el.symbol === "IR_PCOIN_100MG")?.change_value || 0) * 0.3,
-                            symbol: 'IR_PCOIN_30MG'
-                        },
-                    ].map(el => assignKarat(el))
-                },
+                data,
                 timestamp: Date.now(),
             };
 

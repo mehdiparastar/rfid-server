@@ -279,6 +279,10 @@ export class CreateProductDto {
 
     @Transform(({ value }) => parseFloat(value))
     @IsNumber()
+    accessoriesCharge: number;
+
+    @Transform(({ value }) => parseFloat(value))
+    @IsNumber()
     profit: number;
 
     @Transform(({ value, obj }) => {

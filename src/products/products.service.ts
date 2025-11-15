@@ -189,8 +189,8 @@ export class ProductsService {
           ...(!!priceRangeValue ? {
             // calculateGoldPrice
             id: Raw(() => `
-              :minPrice <= Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10
-              AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -223,7 +223,7 @@ export class ProductsService {
       this.productsRepository.find({
         relations: { saleItems: { invoice: { customer: true } }, tags: true, createdBy: true },
         where: whereQuery,
-        select: { id: true, saleItems: { invoice: { customer: false }, quantity: true }, karat: true, subType: true, profit: true, vat: true, makingCharge: true, weight: true, tags: false, createdBy: false },
+        select: { id: true, saleItems: { invoice: { customer: false }, quantity: true }, karat: true, subType: true, profit: true, vat: true, makingCharge: true, accessoriesCharge: true, weight: true, tags: false, createdBy: false },
       }),
     ])
 
@@ -235,6 +235,7 @@ export class ProductsService {
       profit: el.profit,
       makingCharge: el.makingCharge,
       vat: el.vat,
+      accessoriesCharge: el.accessoriesCharge,
       price: calculateGoldPrice(
         el.karat,
         el.weight,
@@ -244,7 +245,8 @@ export class ProductsService {
         {
           price: 10 * (currentCurrency.find(it => el.subType === it.symbol)?.price || 0),
           karat: currentCurrency.find(it => el.subType === it.symbol)?.karat || 0,
-        }
+        },
+        el.accessoriesCharge
       ) || 0
     })).sort((a, b) => a.price - b.price)
 
