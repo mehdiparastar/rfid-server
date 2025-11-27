@@ -1,4 +1,5 @@
-import { Injectable, Logger, UseGuards } from '@nestjs/common';
+import { CACHE_MANAGER, type Cache } from '@nestjs/cache-manager';
+import { Inject, Injectable, Logger, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
@@ -8,6 +9,7 @@ import { env } from 'src/config/env';
 import { ScanMode } from 'src/enum/scanMode.enum';
 import { UserRoles } from 'src/enum/userRoles.enum';
 import { Product } from 'src/products/entities/product.entity';
+import { Esp32ClientInfo, ProductScan } from 'src/serial/esp32-ws.service';
 import { DeviceId, JRDState, TagScan } from 'src/serial/jrd-state.store';
 import { TagsService } from 'src/tags/tags.service';
 import { User } from 'src/users/entities/user.entity';
@@ -29,6 +31,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwtService: JwtService,
     private readonly tagsService: TagsService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) { }
 
   private readonly logger = new Logger(SocketGateway.name);
@@ -77,6 +80,63 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.leave(`room-${(user?.id || user?.sub).toString()}`);
     }
     this.logger.warn(`Client disconnected: ${client.id}, User: ${JSON.stringify((client as any)?.user)}`);
+  }
+
+  async emitESPModulesScanResult(deviceId: number, epc: string, rssi: number, scantimestamp: number, mode: ScanMode, hardScanPower: number, softScanPower: number, thisModeTagScanResults: ProductScan[]) {
+    const rssiBasedPower = softScanPower === 14 ? -66 : softScanPower === 13 ? -64 : softScanPower === 12 ? -62 : softScanPower === 11 ? -60 : softScanPower === 10 ? -58 : softScanPower === 9 ? -56 : softScanPower === 8 ? -54 : softScanPower === 7 ? -52 : softScanPower === 6 ? -50 : softScanPower === 5 ? -48 : softScanPower === 4 ? -46 : softScanPower === 3 ? -44 : softScanPower === 2 ? -42 : -40
+    const rssiBasedPowerCond = rssi > rssiBasedPower
+    if ((softScanPower < 15 && rssiBasedPowerCond) || (hardScanPower > 15) || (hardScanPower === 15 && softScanPower === 15)) {
+      const cacheKey = epc
+      const ttlMiliSeconds = 600_000 // 10 min
+      const cached = await this.cacheManager.get<{
+        scantimestamp: number;
+        id: number;
+        epc: string;
+        rssi: number;
+        pc: number;
+        pl: number;
+        products: Product[];
+        createdBy: User;
+        createdAt: Date;
+        updatedAt: Date;
+      }[]>(cacheKey)
+
+      const tags = (cached !== undefined) ? cached : (await this.tagsService.findtagsByTagEPC([epc]))
+        .map(t => ({ ...t, scantimestamp }))
+
+      if (cached === undefined) {
+        await this.cacheManager.set(cacheKey, tags, ttlMiliSeconds)
+      }
+
+      const products: (Product & { scantimestamp: number, scanRSSI: number })[] = []
+
+      for (const tag of tags) {
+        for (const product of tag.products) {
+          const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
+          if ((product.quantity - soldQuantity > 0) && product.inventoryItem) {
+            products.push({ ...product, scantimestamp: tag.scantimestamp, scanRSSI: rssi })
+          }
+        }
+      }
+
+      if (products.length > 0) {
+        const uniqueRes = [...new Map(products.map(item => [item.id, item])).values()]
+        const prevScannedTag = thisModeTagScanResults.find(p => (p.tags || []).map(t => t.epc).includes(epc))
+        const isTagScanned = prevScannedTag?.id != null
+        const isTagScannedWithTheSameRSSI = isTagScanned && prevScannedTag.scanRSSI === rssi
+        const isTagScannedWithTheSameScanTimestamp = isTagScanned && prevScannedTag.scantimestamp === scantimestamp
+
+        if (!isTagScanned) {
+          const newRes = [...thisModeTagScanResults, ...uniqueRes]
+          thisModeTagScanResults = newRes
+          this.server.emit('esp-modules-new-inventory-scan-recieved', uniqueRes.map(el => ({ ...el, deviceId })))
+        } else if (isTagScanned && (!isTagScannedWithTheSameRSSI || isTagScannedWithTheSameScanTimestamp)) {
+          const updatedRes = thisModeTagScanResults.map(el => el.tags?.map(x => x.epc).includes(epc) ? uniqueRes : el).flat()
+          thisModeTagScanResults = updatedRes
+          this.server.emit('esp-modules-new-inventory-scan-recieved', uniqueRes.map(el => ({ ...el, deviceId })))
+        }
+      }
+    }
   }
 
   async emitScanResult(newTagScanResult: TagScan/*{ epc: string, pc: number, pl: number, rssi: number }*/, scanMode: ScanMode, deviceId?: DeviceId) {
@@ -179,6 +239,40 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } else {
       this.logger.warn('Cannot emit restore progress: User ID is missing');
     }
+  }
+
+
+  async emitUpdateRegistrationStatus(clients: Map<number, Esp32ClientInfo>) {
+    this.server.emit('esp-modules-registration-updated', Array.from(clients.entries()).map(el => el[1]).filter(el => el != null))
+  }
+
+  async emitUpdateESPModulesStatus(clientInfo: Esp32ClientInfo) {
+    const { status, id } = clientInfo
+    this.server.emit('esp-modules-status-updated', { id, status })
+  }
+
+  async emitUpdateESPModulesPower(id: number, hardPower: number, softPower: number) {
+    this.server.emit('esp-modules-updated-power', { id, currentHardPower: hardPower, currentSoftPower: softPower, })
+  }
+
+  async emitUpdateESPModulesIsActive(id: number, isActive: boolean) {
+    this.server.emit('esp-modules-updated-is-active', { id, isActive })
+  }
+
+  async emitUpdateESPModulesMode(id: number, mode: ScanMode) {
+    this.server.emit('esp-modules-updated-mode', { id, mode })
+  }
+
+  async emitStartESPModulesScan(id: number) {
+    this.server.emit('esp-modules-start-scan', { id })
+  }
+
+  async emitStopESPModulesScan(id: number) {
+    this.server.emit('esp-modules-stop-scan', { id })
+  }
+
+  emitClearScanHistory(id: number, mode: ScanMode) {
+    this.server.emit("esp-modules-clear-scan-history-by-mode", { id, mode })
   }
 
 }

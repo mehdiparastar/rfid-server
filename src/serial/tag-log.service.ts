@@ -1,6 +1,6 @@
-import { Injectable, OnModuleInit, Logger, Inject, forwardRef } from '@nestjs/common';
-import { JrdHubService } from './jrd-hub.service';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { SocketGateway } from 'src/socket/socket.gateway';
+import { JrdHubService } from './jrd-hub.service';
 import { JrdStateStore } from './jrd-state.store';
 
 @Injectable()

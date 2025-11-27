@@ -54,7 +54,8 @@
     "rxjs": "^7.8.1",
     "serialport": "^13.0.0",
     "sqlite3": "^5.1.7",
-    "typeorm": "^0.3.26"
+    "typeorm": "^0.3.26",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -72,6 +73,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

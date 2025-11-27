@@ -16,6 +16,7 @@ import { UsersModule } from './users/users.module';
 import { GoldCurrencyModule } from './gold-currency/gold-currency.module';
 import { DbOperationsModule } from './db-operations/db-operations.module';
 import { uploads_root } from './helperFunctions/paths';
+import { RedisCacheModule } from './redis-cache/redis-cache.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { uploads_root } from './helperFunctions/paths';
     SalesModule,
     GoldCurrencyModule,
     DbOperationsModule,
+    RedisCacheModule,
   ],
   controllers: [AppController],
   providers: [

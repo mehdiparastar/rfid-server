@@ -3,7 +3,7 @@ import type { ScanMode } from '../enum/scanMode.enum';
 import { Tag } from 'src/tags/entities/tag.entity';
 
 export type DeviceId = string;
-export type TagScan = Partial<Tag> & { scantimestamp: number }
+export type TagScan = Partial<Tag> & { scantimestamp: number, scanRSSI?: number }
 export type TagScanResults = Record<ScanMode, TagScan[]>;
 export interface JRDState {
     mode: ScanMode;

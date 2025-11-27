@@ -1,39 +1,32 @@
 import { Module } from '@nestjs/common';
+import { RedisCacheModule } from 'src/redis-cache/redis-cache.module';
 import { SocketModule } from 'src/socket/socket.module';
 import { TagsModule } from 'src/tags/tags.module';
+import { Esp32WsService } from './esp32-ws.service';
 import { JrdHubService } from './jrd-hub.service';
-import { JrdController } from './jrd.controller';
-import { TagLogService } from './tag-log.service';
 import { JrdStateStore } from './jrd-state.store';
+import { JrdController } from './jrd.controller';
 import { JrdService } from './jrd.service';
-import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-store';
 import { LockService } from './lock.service';
+import { TagLogService } from './tag-log.service';
+import { ProductsModule } from 'src/products/products.module';
 
 @Module({
   imports: [
-    CacheModule.registerAsync({
-      useFactory: async () => ({
-        store: await redisStore({
-          socket: {
-            host: '127.0.0.1',  // Local Redis on M2 Berry
-            port: 6379,
-          },
-          ttl: 120,  // Your 2-min default
-        }),
-      }),
-    }),
+    RedisCacheModule,
     SocketModule,
-    TagsModule
+    TagsModule,
+    ProductsModule
   ],
   providers: [
     JrdHubService,
     JrdStateStore,
     JrdService,
     TagLogService,
-    LockService
+    LockService,
+    Esp32WsService
   ],
   controllers: [JrdController],
-  exports: [JrdHubService]
+  exports: [JrdHubService, Esp32WsService]
 })
 export class SerialModule { }

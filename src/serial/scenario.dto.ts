@@ -1,6 +1,6 @@
 import { ArrayNotEmpty, IsArray, IsEnum, IsString } from "class-validator";
-import { DeviceId } from "./jrd-state.store";
 import { type ScanMode, ScanModeEnum } from "src/enum/scanMode.enum";
+import { DeviceId } from "./jrd-state.store";
 
 export class StartScenarioDto {
     @IsArray()
@@ -17,7 +17,7 @@ export class StopScenarioDto {
     mode!: ScanMode;
 }
 
-export class ClearScenarioHistoryDto {
+export class ScanModeDto {
     @IsEnum(ScanModeEnum)
     mode!: ScanMode;
 }

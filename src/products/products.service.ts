@@ -349,6 +349,49 @@ export class ProductsService {
     return true;
   }
 
+  async findItemsShouldBeScanned(epcList: string[]) {
+    const qb = this.productsRepository
+      .createQueryBuilder('p')
+      .where('p.inventoryItem = 1')
+      .leftJoinAndSelect('p.tags', 'tags')
+      .andWhere(`
+        p.quantity > (
+          SELECT IFNULL(SUM(si.quantity), 0)
+          FROM sale_items si
+          WHERE si.productId = p.id
+        )
+      `);
+
+    if (epcList.length > 0) {
+      qb.andWhere(`
+      EXISTS (
+        SELECT 1
+        FROM products_tags_tags pt
+        JOIN tags t ON t.id = pt.tagsId
+        WHERE pt.productsId = p.id
+          AND t.epc NOT IN (:...epcList)
+      )
+    `, { epcList });
+    } else {
+      // No EPC filter → just ensure it has tags
+      qb.andWhere(`
+      EXISTS (
+        SELECT 1
+        FROM products_tags_tags pt
+        JOIN tags t ON t.id = pt.tagsId
+        WHERE pt.productsId = p.id
+      )
+    `);
+    }
+
+    const product = await qb
+      .orderBy('p.id', 'ASC')
+      .limit(1)
+      .getOne();
+
+    return [product].filter(el => el != null)
+  }
+
   // --- helpers ---
 
   private async deleteFilesSafe(paths: string[]) {

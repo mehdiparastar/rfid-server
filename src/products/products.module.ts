@@ -11,5 +11,6 @@ import { SalesModule } from 'src/sales/sales.module';
   imports: [TypeOrmModule.forFeature([Product]), TagsModule, GoldCurrencyModule, SalesModule],
   controllers: [ProductsController],
   providers: [ProductsService],
+  exports: [ProductsService]
 })
 export class ProductsModule { }
