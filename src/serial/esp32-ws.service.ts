@@ -279,7 +279,8 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
                                 clientInfo.mode,
                                 clientInfo.currentHardPower,
                                 clientInfo.currentSoftPower,
-                                clientInfo.tagScanResults[clientInfo.mode]
+                                clientInfo.tagScanResults[clientInfo.mode],
+                                this.clients,
                             );
                             return
                         } else {
@@ -392,35 +393,43 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
     //  HIGH-LEVEL COMMANDS
     // ==========================================================
     async getCurrentPower(id: number) {
-        const currentHardPower = await this.sendRequestPromisify(id, Buffer.from([0xB1])) as number
-        const client = this.clients.get(id);
-        if (client) {
-            return ({ currentSoftPower: client.currentSoftPower, currentHardPower })
+        try {
+            const currentHardPower = await this.sendRequestPromisify(id, Buffer.from([0xB1])) as number
+            const client = this.clients.get(id);
+            if (client) {
+                return ({ currentSoftPower: client.currentSoftPower, currentHardPower })
+            }
+            return { currentSoftPower: -1, currentHardPower: -1, }
+        } catch (ex) {
+            return { currentSoftPower: -1, currentHardPower: -1, }
         }
-        return { currentSoftPower: -1, currentHardPower: -1, }
     }
 
     async setPower(id: number, dbm: number) {
-        const setResponse = await this.sendRequestPromisify(id, Buffer.from([0xB2, dbm])) as boolean
-        if (setResponse) {
-            const currentPower = await this.getCurrentPower(id)
-            const client = this.clients.get(id);
-            if (client) {
-                if (dbm < 15) {
-                    client.currentSoftPower = dbm;
-                } else {
-                    client.currentSoftPower = 15
+        try {
+            const setResponse = await this.sendRequestPromisify(id, Buffer.from([0xB2, dbm])) as boolean
+            if (setResponse) {
+                const currentPower = await this.getCurrentPower(id)
+                const client = this.clients.get(id);
+                if (client) {
+                    if (dbm < 15) {
+                        client.currentSoftPower = dbm;
+                    } else {
+                        client.currentSoftPower = 15
+                    }
+                    client.currentHardPower = currentPower.currentHardPower
+                    this.socketGateway.emitUpdateESPModulesPower(
+                        client.id!,
+                        client.currentHardPower,
+                        client.currentSoftPower,
+                    );
+                    return ({ currentSoftPower: client.currentSoftPower, currentHardPower: client.currentHardPower })
                 }
-                client.currentHardPower = currentPower.currentHardPower
-                this.socketGateway.emitUpdateESPModulesPower(
-                    client.id!,
-                    client.currentHardPower,
-                    client.currentSoftPower,
-                );
-                return ({ currentSoftPower: client.currentSoftPower, currentHardPower: client.currentHardPower })
             }
+            return { currentSoftPower: -1, currentHardPower: -1, }
+        } catch (ex) {
+            return { currentSoftPower: -1, currentHardPower: -1, }
         }
-        return { currentSoftPower: -1, currentHardPower: -1, }
     }
 
     setIsActive(id: number, isActive: boolean) {
@@ -440,13 +449,19 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
     }
 
     async startScan(id: number): Promise<boolean> {
-        const client = this.clients.get(id)
-        if (client && client.isActive) {
-            const res = await this.sendRequestPromisify(id, Buffer.from([0xA1]));
-            this.socketGateway.emitStartESPModulesScan(client.id!);
-            return res
+        try {
+            const client = this.clients.get(id)
+            if (client && client.isActive) {
+                const res = await this.sendRequestPromisify(id, Buffer.from([0xA1]));
+                if (res === true) {
+                    this.socketGateway.emitStartESPModulesScan(client.id!);
+                }
+                return res
+            }
+            return false
+        } catch (ex) {
+            return false
         }
-        return false
     }
 
     async startScanByIds(ids: number[]) {
@@ -463,6 +478,7 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
     async startScanByMode(mode: ScanMode) {
         const out: { id: number, started: boolean }[] = []
         const ids = Array.from(this.clients.entries()).filter(([_, c]) => c.mode === mode && c.isActive).map(([id]) => id)
+        this.logger.log(`[${ids.join(", ")}] ids should be started in ${mode} mode`)
         for (const id of ids) {
             const res = await this.startScan(id)
             out.push({ id, started: res });
@@ -471,18 +487,25 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
     }
 
     async stopScan(id: number) {
-        const client = this.clients.get(id)
-        const res = await this.sendRequestPromisify(id, Buffer.from([0xA2])) as boolean;
-        if (client) {
-            this.socketGateway.emitStopESPModulesScan(client.id!);
+        try {
+            const client = this.clients.get(id)
+            const res = await this.sendRequestPromisify(id, Buffer.from([0xA2])) as boolean;
+            this.logger.log(`stopped ${id} with res: ${res}`)
+            if (client && res === true) {
+                this.socketGateway.emitStopESPModulesScan(client.id!);
+            }
+            return res
+        } catch (ex) {
+            return false
         }
-        return res
     }
 
     async stopScanByMode(mode: ScanMode) {
         const out: { id: number, stopped: boolean }[] = []
 
-        const ids = Array.from(this.clients.entries()).filter(([id, c]) => c.mode === mode && c.isScan).map(el => el[0])
+        const ids = Array.from(this.clients.entries()).filter(([id, c]) => c.mode === mode).map(el => el[0])
+        this.logger.log(`[${ids.join(", ")}] ids should be stopped in ${mode} mode`)
+
         for (const id of ids) {
             const res = await this.stopScan(id);
             out.push({ id, stopped: res });
@@ -510,6 +533,7 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
     // List all connected modules
     // ==========================================================
     listConnected() {
+        const clients = Array.from(this.clients.entries())
         return Array.from(this.clients.entries()).map(([id, c]) => {
 
             return ({
