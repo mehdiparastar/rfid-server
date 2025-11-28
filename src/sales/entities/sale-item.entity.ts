@@ -1,7 +1,7 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { Invoice } from "./invoice.entity";
 import { Product } from "src/products/entities/product.entity";
 import { User } from "src/users/entities/user.entity";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Invoice } from "./invoice.entity";
 
 @Entity('sale_items')
 export class SaleItem {

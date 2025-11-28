@@ -10,7 +10,6 @@ import { ScanMode } from 'src/enum/scanMode.enum';
 import { UserRoles } from 'src/enum/userRoles.enum';
 import { Product } from 'src/products/entities/product.entity';
 import { Esp32ClientInfo, ProductScan } from 'src/serial/esp32-ws.service';
-import { DeviceId, JRDState, TagScan } from 'src/serial/jrd-state.store';
 import { TagsService } from 'src/tags/tags.service';
 import { User } from 'src/users/entities/user.entity';
 import { extractTokenFromCookie, WsJwtAccessGuard } from './ws-jwt-access.guard';
@@ -166,78 +165,6 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  async emitScanResult(newTagScanResult: TagScan/*{ epc: string, pc: number, pl: number, rssi: number }*/, scanMode: ScanMode, deviceId?: DeviceId) {
-    if (newTagScanResult.epc && scanMode === "Inventory") {
-      const tags = (await this.tagsService.findtagsByTagEPC([newTagScanResult.epc])).map(t => ({ ...t, scantimestamp: newTagScanResult.scantimestamp }))
-      const products: (Product & { scantimestamp?: number })[] = []
-
-      for (const tag of tags) {
-        for (const product of tag.products) {
-          const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
-          if ((product.quantity - soldQuantity > 0) && product.inventoryItem) {
-            products.push({ ...product, scantimestamp: tag.scantimestamp })
-          }
-        }
-      }
-
-      if (products.length > 0) {
-        const uniqueRes = [...new Map(products.map(item => [item.id, item])).values()]
-        this.server.emit('new-scan-result', { "Inventory": uniqueRes.map(el => ({ ...el, deviceId })) })
-      }
-    }
-
-    if (newTagScanResult.epc && scanMode === "NewProduct") {
-      const dbTags = await this.tagsService.findtagsByTagEPC([newTagScanResult.epc])
-      const tags = dbTags.length > 0 ? dbTags.map(t => ({ ...t, scantimestamp: newTagScanResult.scantimestamp })) : [newTagScanResult]
-      const validTags: TagScan[] = []
-      for (const tag of tags) {
-        if (!tag.products || tag.products.length === 0) {
-          validTags.push(tag)
-        } else {
-          validTags.push(tag)
-          for (const product of tag.products) {
-            const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
-            if (product.quantity - soldQuantity > 0) {
-              validTags.pop()
-              break
-            }
-          }
-        }
-      }
-      if (validTags.length > 0)
-        this.server.emit('new-scan-result', { 'NewProduct': validTags.map(el => ({ ...el, deviceId })) })
-    }
-
-    if (newTagScanResult.epc && scanMode === "Scan") {
-      const tags = (await this.tagsService.findtagsByTagEPC([newTagScanResult.epc])).map(t => ({ ...t, scantimestamp: newTagScanResult.scantimestamp }))
-      const products: (Product & { scantimestamp: number })[] = []
-
-      for (const tag of tags) {
-        for (const product of tag.products) {
-          const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
-          if (product.quantity - soldQuantity > 0) {
-            products.push({ ...product, scantimestamp: tag.scantimestamp })
-          }
-        }
-      }
-
-      if (products.length > 0) {
-        const uniqueRes = [...new Map(products.map(item => [item.id, item])).values()]
-        this.server.emit('new-scan-result', { "Scan": uniqueRes.map(el => ({ ...el, deviceId })) })
-      }
-    }
-  }
-
-  async emitUpdateScanStartStop(
-    mode: ScanMode,
-    data: readonly {
-      id: string;
-      state: Readonly<JRDState>;
-    }[]
-  ) {
-    this.server.emit('update-current-scenario', { mode, data })
-  }
-
   @SubscribeMessage('scan')
   handleMessage(client: Socket, @MessageBody() message: string): void {
     this.server.emit('scan-response', {
@@ -267,7 +194,6 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.warn('Cannot emit restore progress: User ID is missing');
     }
   }
-
 
   async emitUpdateRegistrationStatus(clients: Map<number, Esp32ClientInfo>) {
     this.server.emit('esp-modules-registration-updated', Array.from(clients.entries()).map(el => el[1]).filter(el => el != null))
