@@ -101,21 +101,44 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         updatedAt: Date;
       }[]>(cacheKey)
 
-      const tags = (cached !== undefined) ? cached : (await this.tagsService.findtagsByTagEPC([epc]))
+      const tags = (cached !== undefined && mode !== 'NewProduct') ? cached : (await this.tagsService.findtagsByTagEPC([epc]))
         .map(t => ({ ...t, scantimestamp }))
 
-      if (cached === undefined) {
+      if (cached === undefined && mode !== 'NewProduct') {
         await this.cacheManager.set(cacheKey, tags, ttlMiliSeconds)
       }
 
       const products: (Product & { scantimestamp: number, scanRSSI: number })[] = []
 
-      for (const tag of tags) {
-        for (const product of tag.products) {
-          const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
-          if ((product.quantity - soldQuantity > 0) && product.inventoryItem) {
-            products.push({ ...product, scantimestamp: tag.scantimestamp, scanRSSI: rssi })
+      if (tags.length > 0) {
+        for (const tag of tags) {
+          if (tag.products.length > 0) {
+            for (const product of tag.products) {
+              const soldQuantity = product.saleItems.reduce((p, c) => p + c.quantity, 0)
+              if (product.quantity - soldQuantity > 0) {
+                if (mode === "Inventory") {
+                  if (product.inventoryItem) {
+                    products.push({ ...product, scantimestamp: scantimestamp, scanRSSI: rssi })
+                  }
+                }
+                if (mode === "Scan") {
+                  products.push({ ...product, scantimestamp: scantimestamp, scanRSSI: rssi })
+                }
+              } else {
+                if (mode === 'NewProduct') {
+                  products.push({ id: parseInt(epc.slice(-7), 16), scantimestamp: scantimestamp, scanRSSI: rssi, tags: [{ epc }] } as Product & { scantimestamp: number, scanRSSI: number })
+                }
+              }
+            }
+          } else {
+            if (mode === "NewProduct") {
+              products.push({ id: parseInt(epc.slice(-7), 16), scantimestamp: scantimestamp, scanRSSI: rssi, tags: [{ epc }] } as Product & { scantimestamp: number, scanRSSI: number })
+            }
           }
+        }
+      } else {
+        if (mode === "NewProduct") {
+          products.push({ id: parseInt(epc.slice(-7), 16), scantimestamp: scantimestamp, scanRSSI: rssi, tags: [{ epc }] } as Product & { scantimestamp: number, scanRSSI: number })
         }
       }
 
@@ -128,12 +151,16 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         if (!isTagScanned) {
           const newRes = [...thisModeTagScanResults, ...uniqueRes]
-          clients.get(deviceId)!.tagScanResults[mode] = newRes
-          this.server.emit('esp-modules-new-inventory-scan-recieved', uniqueRes.map(el => ({ ...el, deviceId })))
+          if (clients.get(deviceId)) {
+            clients.get(deviceId)!.tagScanResults[mode] = newRes
+            this.server.emit('esp-modules-new-scan-recieved', uniqueRes.map(el => ({ ...el, deviceId })))
+          }
         } else if (isTagScanned && (!isTagScannedWithTheSameRSSI || isTagScannedWithTheSameScanTimestamp)) {
           const updatedRes = thisModeTagScanResults.map(el => el.tags?.map(x => x.epc).includes(epc) ? uniqueRes : el).flat()
-          clients.get(deviceId)!.tagScanResults[mode] = updatedRes
-          this.server.emit('esp-modules-new-inventory-scan-recieved', uniqueRes.map(el => ({ ...el, deviceId })))
+          if (clients.get(deviceId)) {
+            clients.get(deviceId)!.tagScanResults[mode] = updatedRes
+            this.server.emit('esp-modules-new-scan-recieved', uniqueRes.map(el => ({ ...el, deviceId })))
+          }
         }
       }
     }

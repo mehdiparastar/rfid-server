@@ -3,7 +3,6 @@ import { ScanMode } from 'src/enum/scanMode.enum';
 import { Product } from 'src/products/entities/product.entity';
 import { ProductsService } from 'src/products/products.service';
 import { SocketGateway } from 'src/socket/socket.gateway';
-import { DataSource } from 'typeorm';
 import { WebSocket, WebSocketServer } from 'ws';
 
 interface Esp32StatusPayload {
@@ -249,6 +248,7 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
                             // Step 1 — checksum ultra-fast validation
                             if (!this.validateChecksum(buf, len)) {
                                 // corrupted frame – ignore it
+                                this.logger.error('invalidated checksum')
                                 return null;
                             }
 
@@ -533,9 +533,7 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
     // List all connected modules
     // ==========================================================
     listConnected() {
-        const clients = Array.from(this.clients.entries())
         return Array.from(this.clients.entries()).map(([id, c]) => {
-
             return ({
                 id,
                 ip: c.ip,

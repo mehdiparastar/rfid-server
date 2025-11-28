@@ -130,7 +130,7 @@ export class GoldCurrencyService {
             return data as { gold: GoldItem[] };
         } catch (error) {
             throw new HttpException(
-                'Failed to fetch gold currency data',
+                'مشکلی در دریافت قیمت بروز رخ داده است.',//'Failed to fetch gold currency data',
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
