@@ -85,8 +85,8 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const rssiBasedPower = softScanPower === 14 ? -66 : softScanPower === 13 ? -64 : softScanPower === 12 ? -62 : softScanPower === 11 ? -60 : softScanPower === 10 ? -58 : softScanPower === 9 ? -56 : softScanPower === 8 ? -54 : softScanPower === 7 ? -52 : softScanPower === 6 ? -50 : softScanPower === 5 ? -48 : softScanPower === 4 ? -46 : softScanPower === 3 ? -44 : softScanPower === 2 ? -42 : -40
     const rssiBasedPowerCond = rssi > rssiBasedPower
     if ((softScanPower < 15 && rssiBasedPowerCond) || (hardScanPower > 15) || (hardScanPower === 15 && softScanPower === 15)) {
-      const cacheKey = epc
-      const ttlMiliSeconds = 600_000 // 10 min
+      const cacheKey = `${epc}-${mode}`
+      const ttlMiliSeconds = 300_000 // 5 min
       const cached = await this.cacheManager.get<{
         scantimestamp: number;
         id: number;

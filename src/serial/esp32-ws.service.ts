@@ -248,7 +248,7 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
                             // Step 1 — checksum ultra-fast validation
                             if (!this.validateChecksum(buf, len)) {
                                 // corrupted frame – ignore it
-                                this.logger.error('invalidated checksum')
+                                this.logger.error(`invalidated checksum: ${buf.toString('hex')}`)
                                 return null;
                             }
 
