@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsDate, IsDateString, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsDate, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { CreateCustomerDto } from "src/customers/dto/create-customer.dto";
 
 export class CreateSaleItemDto {

@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import dayjs from 'dayjs';
 import { CustomersService } from 'src/customers/customers.service';
+import { Customer } from 'src/customers/entities/customer.entity';
 import { GoldCurrencyService } from 'src/gold-currency/gold-currency.service';
+import { Product } from 'src/products/entities/product.entity';
+import { TagsService } from 'src/tags/tags.service';
 import { User } from 'src/users/entities/user.entity';
 import { Between, DataSource, Repository } from 'typeorm';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { Invoice } from './entities/invoice.entity';
 import { SaleItem } from './entities/sale-item.entity';
-import { Product } from 'src/products/entities/product.entity';
 import { PeriodType } from './sales.controller';
-import dayjs from 'dayjs';
-import { Customer } from 'src/customers/entities/customer.entity';
-import { TagsService } from 'src/tags/tags.service';
 
 @Injectable()
 export class SalesService {

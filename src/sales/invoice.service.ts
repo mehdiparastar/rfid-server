@@ -1,10 +1,10 @@
-import { InjectRepository } from "@nestjs/typeorm";
-import { Invoice } from "./entities/invoice.entity";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { And, In, LessThan, Like, MoreThan, Repository } from "typeorm";
-import { Cursor } from "src/products/products.service";
+import { InjectRepository } from "@nestjs/typeorm";
 import { createSortObject, makeSortCondition } from "src/helperFunctions/createSortObject";
+import { Cursor } from "src/products/products.service";
 import { User } from "src/users/entities/user.entity";
+import { And, In, Like, Repository } from "typeorm";
+import { Invoice } from "./entities/invoice.entity";
 import { SalesService } from "./sales.service";
 
 export interface GetAllInvoicesOptions {
@@ -147,21 +147,6 @@ export class InvoicesService {
         }
 
         await this.invoicesRepository.delete(invoiceId)
-        // 3) Transaction: reUse tags and delete the invoice
-        // await this.dataSource.transaction(async (manager) => {
-        //     // remove many-to-many join rows explicitly (safer across DBs)
-        //     if (invoice.tags?.length) {
-        //         await manager
-        //             .createQueryBuilder()
-        //             .relation(Invoice, 'tags')
-        //             .of(invoice)
-        //             .remove(invoice.tags);
-        //     }
-
-        //     // delete the invoice row
-        //     await manager.delete(Invoice, { id: invoiceId });
-        // });
-
 
         return true;
     }

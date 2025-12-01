@@ -1,13 +1,13 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseArrayPipe, ParseIntPipe, Patch, Post, Put, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseArrayPipe, ParseIntPipe, Post, Put, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
 import { User } from 'src/users/entities/user.entity';
 import { CreateProductDto } from './dto/create-product.dto';
-import { Cursor, ProductsService } from './products.service';
-import { ValidateProductFilesPipe } from './validate-product-files.pipe';
 import { GetProductsDto } from './dto/get-products-querystring.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { Cursor, ProductsService } from './products.service';
+import { ValidateProductFilesPipe } from './validate-product-files.pipe';
 
 const MAX_FILES_PER_FIELD = 12;
 const MAX_FILE_SIZE = 400 * 1024 * 1024; // 400 MB
