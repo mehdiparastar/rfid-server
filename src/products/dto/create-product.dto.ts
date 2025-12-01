@@ -271,7 +271,11 @@ export class CreateProductDto {
 
     @Transform(({ value }) => parseFloat(value))
     @IsNumber()
-    makingCharge: number;
+    makingChargeBuy: number;
+
+    @Transform(({ value }) => parseFloat(value))
+    @IsNumber()
+    makingChargeSell: number;
 
     @Transform(({ value }) => parseFloat(value))
     @IsNumber()

@@ -10,9 +10,10 @@ import { InvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoice.service';
 import { Product } from 'src/products/entities/product.entity';
 import { Customer } from 'src/customers/entities/customer.entity';
+import { TagsModule } from 'src/tags/tags.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SaleItem, Invoice, Product, Customer]), GoldCurrencyModule, CustomersModule],
+  imports: [TypeOrmModule.forFeature([SaleItem, Invoice, Product, Customer]), GoldCurrencyModule, CustomersModule, TagsModule],
   controllers: [SalesController, InvoicesController],
   providers: [SalesService, InvoicesService],
   exports: [SalesService]

@@ -273,7 +273,7 @@ export class Esp32WsService implements OnModuleInit, OnModuleDestroy {
                             const crc = (buf[epcEnd] << 8) | buf[epcEnd + 1];
                             this.socketGateway.emitESPModulesScanResult(
                                 clientInfo.id!,
-                                epc,
+                                epc.toUpperCase(),
                                 rssi,
                                 clientInfo.lastSeen,
                                 clientInfo.mode,

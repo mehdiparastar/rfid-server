@@ -14,7 +14,7 @@ export class CustomersService {
 
   async findOrCreate(createCustomerDto: CreateCustomerDto) {
     const customer = await this.customersRepository.findOne({
-      where: [{ nid: createCustomerDto.nid }, { phone: createCustomerDto.phone }],
+      where: [{ name: createCustomerDto.name }, { phone: createCustomerDto.phone }],
     }) ?? this.customersRepository.create(createCustomerDto);
 
     if (!customer.id) await this.customersRepository.save(customer);

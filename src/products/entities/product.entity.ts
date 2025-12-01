@@ -42,13 +42,16 @@ export class Product {
     quantity: number;  // Available quantity of the product
 
     @Column('decimal', { precision: 10, scale: 1, default: 17, nullable: false })
-    makingCharge: number; // 0..255; Charge for making the product
+    makingChargeBuy: number;
+
+    @Column('decimal', { precision: 10, scale: 1, default: 19, nullable: false })
+    makingChargeSell: number;
 
     @Column('decimal', { precision: 10, scale: 1, default: 2, nullable: false })
-    vat: number;  // vat for making the product
+    vat: number;
 
     @Column('decimal', { precision: 10, scale: 1, default: 7, nullable: false })
-    profit: number;  // profit for making the product
+    profit: number;
 
     @Column('decimal', { precision: 10, scale: 0, default: 0, nullable: false })
     accessoriesCharge: number;  // Cost of optional accessories (e.g., belts) added to total price

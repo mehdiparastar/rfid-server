@@ -6,6 +6,7 @@ export class CreateSaleItemDto {
     @IsInt() productId: number;
     @IsInt() @Min(1) quantity: number;
     @IsNumber() soldPrice: number; // total per line or unit—be consistent
+    @IsNumber() discount: number;
     @IsNumber() spotPrice: number;
 }
 

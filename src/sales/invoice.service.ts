@@ -1,9 +1,11 @@
 import { InjectRepository } from "@nestjs/typeorm";
 import { Invoice } from "./entities/invoice.entity";
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { And, In, LessThan, Like, MoreThan, Repository } from "typeorm";
 import { Cursor } from "src/products/products.service";
 import { createSortObject, makeSortCondition } from "src/helperFunctions/createSortObject";
+import { User } from "src/users/entities/user.entity";
+import { SalesService } from "./sales.service";
 
 export interface GetAllInvoicesOptions {
     cursor: Cursor | null
@@ -21,6 +23,7 @@ function getByPath<T extends object, D = any>(obj: T, path: string, def?: D): D 
 export class InvoicesService {
     constructor(
         @InjectRepository(Invoice) private invoicesRepository: Repository<Invoice>,
+        private readonly salesService: SalesService,
     ) { }
 
     async getAllInvoices({
@@ -115,6 +118,52 @@ export class InvoicesService {
 
     async getInvoicesByIds(ids: number[]) {
         return await this.invoicesRepository.find({ where: { id: In(ids) }, relations: { items: { product: { saleItems: true, tags: true } }, customer: true, createdBy: true } })
+    }
+
+    async deleteOneInvoiceById(invoiceId: number, user: Partial<User>) {
+        // 1) Load invoice with relations we need for checks and cleanup
+        const invoice = await this.invoicesRepository.findOne({
+            where: { id: invoiceId },
+            relations: { createdBy: true },
+        });
+
+        if (!invoice) {
+            // Controller turns falsy into 404, but throwing here is also fine:
+            throw new NotFoundException('Invoice not found');
+        }
+
+        // 2) Authorization: owner
+        const isOwner = invoice.createdBy.id === parseInt(user.id as any)
+        if (!isOwner) {
+            throw new BadRequestException('You are not allowed to delete this invoice');
+        }
+
+        // 3) Referential integrity: block if there are sale items referencing it
+        const res = await this.salesService.canReUseThisInvoiceTags(invoiceId)
+        if (!res.status) {
+            throw new BadRequestException(
+                `Cannot delete: invoice has used tags. ${res.tagsExceptions.join("\n")}`,
+            );
+        }
+
+        await this.invoicesRepository.delete(invoiceId)
+        // 3) Transaction: reUse tags and delete the invoice
+        // await this.dataSource.transaction(async (manager) => {
+        //     // remove many-to-many join rows explicitly (safer across DBs)
+        //     if (invoice.tags?.length) {
+        //         await manager
+        //             .createQueryBuilder()
+        //             .relation(Invoice, 'tags')
+        //             .of(invoice)
+        //             .remove(invoice.tags);
+        //     }
+
+        //     // delete the invoice row
+        //     await manager.delete(Invoice, { id: invoiceId });
+        // });
+
+
+        return true;
     }
 
 }

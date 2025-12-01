@@ -39,6 +39,32 @@ export class TagsService {
     return await this.tagsRepository.findOne(options);
   }
 
+  async fintTagByEPCAndAssessCanBeUsedThisTag(epc: string) {
+    const exceptions: string[] = []
+
+    const tag = await this.tagsRepository.findOne({
+      where: { epc: epc },
+      relations: { products: { saleItems: true } }
+    });
+
+    if (!tag) {
+      return { requestedEPC: epc, status: true, exceptions, tag }
+    } else {
+      if (tag.products.length > 0) {
+        for (const product of tag.products) {
+          const soldCount = product.saleItems.reduce((p, c) => p + c.quantity, 0)
+          if (product.quantity > soldCount) {
+            exceptions.push(`selected tag with EPC of "${epc}" is used by product with name of "${product.name}"`)
+          }
+        }
+        return { requestedEPC: epc, status: exceptions.length === 0, exceptions, tag }
+      }
+      else {
+        return { requestedEPC: epc, status: true, exceptions, tag }
+      }
+    }
+
+  }
 
   async getAllTags({
     cursor,

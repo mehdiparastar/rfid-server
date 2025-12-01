@@ -1,7 +1,6 @@
 import { Customer } from "src/customers/entities/customer.entity";
-import { Product } from "src/products/entities/product.entity";
 import { User } from "src/users/entities/user.entity";
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { SaleItem } from "./sale-item.entity";
 
 @Entity('invoices')

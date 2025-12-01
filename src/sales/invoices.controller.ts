@@ -1,6 +1,9 @@
-import { BadRequestException, Controller, Get, ParseArrayPipe, Query } from "@nestjs/common";
-import { GetInvoicesDto } from "./dto/get-invoices-querystring.dto";
+import { BadRequestException, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseArrayPipe, ParseIntPipe, Query, UseGuards } from "@nestjs/common";
+import { CurrentUser } from "src/auth/current-user.decorator";
+import { JwtAccessGuard } from "src/auth/guards/jwt-access.guard";
 import { Cursor } from "src/products/products.service";
+import { User } from "src/users/entities/user.entity";
+import { GetInvoicesDto } from "./dto/get-invoices-querystring.dto";
 import { InvoicesService } from "./invoice.service";
 
 @Controller('invoices')
@@ -53,5 +56,22 @@ export class InvoicesController {
 
         const invoices = await this.invoicesService.getInvoicesByIds(ids); // SELECT ... WHERE id IN (...)
         return invoices;
+    }
+
+    // --- ADD THIS: delete a single invoice ---
+    @Delete(':id')
+    @UseGuards(JwtAccessGuard)
+    @HttpCode(HttpStatus.NO_CONTENT) // 204 on success
+    async deleteOne(
+        @Param('id', ParseIntPipe) id: number,
+        @CurrentUser() user: Partial<User>,
+    ) {
+        // Service should handle: existence check, permission (owner/admin), side effects (files/tags), etc.
+        const deleted = await this.invoicesService.deleteOneInvoiceById(id, user);
+        if (!deleted) {
+            // If service returns false/0 when not found
+            throw new NotFoundException('Invoice not found');
+        }
+        // No body for 204
     }
 }

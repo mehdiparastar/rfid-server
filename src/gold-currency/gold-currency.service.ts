@@ -69,6 +69,51 @@ export class GoldCurrencyService {
     private readonly CACHE_DURATION = 60 * 1000; // 1 minute in milliseconds
     // private readonly API_URL_ = 'https://BrsApi.ir/Api/Market/Gold_Currency.php?key=Bl13tlilwXFAV8dxe1ryIDAlfnSdGXdh';
     private readonly API_URL = 'https://BrsApi.ir/Api/Market/Gold_Currency_Pro.php?key=Bl13tlilwXFAV8dxe1ryIDAlfnSdGXdh&section=gold,currency';
+    private readonly API_URL_TABAN = 'https://webservice.tgnsrv.ir/Pr/Get/baghaei9215/b09148199215b';
+
+    // tabanReplyKeys = [
+    //     "SekehRob",
+    //     "SekehNim",
+    //     "SekehTamam",
+    //     "SekehEmam",
+    //     "YekGram18",
+    //     "KharidMotefaregheh18",
+    //     "TavizMotefaregheh18",
+    //     "YekGram20",
+    //     "SekehGerami",
+    //     "YekGram21",
+    //     "Dollar",
+    //     "Euro",
+    //     "Derham",
+    //     "OunceTala",
+    //     "TimeRead",
+    // ]
+    // brsApiSymbols = [
+    //     "IR_COIN_EMAMI",
+    //     "IR_COIN_BAHAR",
+    //     "IR_COIN_HALF",
+    //     "IR_COIN_QUARTER",
+    //     "IR_COIN_1G",
+    //     "IR_PCOIN_1-5G",
+    //     "IR_PCOIN_1-4G",
+    //     "IR_PCOIN_1-3G",
+    //     "IR_PCOIN_1-2G",
+    //     "IR_PCOIN_1-1G",
+    //     "IR_PCOIN_1G",
+    //     "IR_PCOIN_900MG",
+    //     "IR_PCOIN_800MG",
+    //     "IR_PCOIN_700MG",
+    //     "IR_PCOIN_600MG",
+    //     "IR_PCOIN_500MG",
+    //     "IR_PCOIN_400MG",
+    //     "IR_PCOIN_300MG",
+    //     "IR_PCOIN_200MG",
+    //     "IR_PCOIN_100MG",
+    //     "IR_GOLD_18K",
+    //     "IR_GOLD_24K",
+    //     "IR_GOLD_MELTED",
+    //     "XAUUSD",
+    // ]
 
     constructor(private readonly httpService: HttpService) { }
 
@@ -81,6 +126,7 @@ export class GoldCurrencyService {
         try {
             // Fetch new data from API
             const response = await firstValueFrom(this.httpService.get(this.API_URL));
+            const response_TABAN = await firstValueFrom(this.httpService.get(this.API_URL_TABAN));
             // const data_ = { gold: response_.data.gold };
             let data = {
                 gold: [
@@ -90,6 +136,23 @@ export class GoldCurrencyService {
                     ...response.data.gold.ounce,
                 ]
             };
+
+            data = {
+                gold: data.gold.map(item => {
+                    if (item.symbol === "IR_GOLD_18K") {
+                        return ({
+                            ...data.gold.find(el => el.symbol === "IR_GOLD_18K"),
+                            price:
+                                data.gold.find(el => el.symbol === "IR_GOLD_18K").price > response_TABAN.data.YekGram18 ?
+                                    data.gold.find(el => el.symbol === "IR_GOLD_18K").price :
+                                    response_TABAN.data.YekGram18,
+                            time: `${response_TABAN.data.TimeRead > data.gold.find(el => el.symbol === "IR_GOLD_18K").time ? response_TABAN.data.TimeRead.split(' ')[1].split(':').slice(0, 2).join(':') + "|T" : data.gold.find(el => el.symbol === "IR_GOLD_18K").time + "|B"}${data.gold.find(el => el.symbol === "IR_GOLD_18K").price > response_TABAN.data.YekGram18 ? "B" : "T"}`
+                        })
+                    } else {
+                        return item
+                    }
+                })
+            }
 
             data = {
                 gold: [

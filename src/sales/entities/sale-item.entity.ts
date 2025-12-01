@@ -25,6 +25,9 @@ export class SaleItem {
     @Column('decimal', { precision: 18, scale: 2, nullable: false })
     soldPrice: number;
 
+    @Column('decimal', { precision: 18, scale: 2, default: 0 })
+    discount: number;
+
     @ManyToOne(() => User, user => user.saleItems)  // Relation with users table
     @JoinColumn({ name: 'userId' })
     createdBy: User;

@@ -50,34 +50,41 @@ export class ProductsService {
 
     // Handle tags: find or create based on unique EPC.
     const tags: Tag[] = [];
-    const tagsExceptions: string[] = []
+    let tagsExceptions: string[] = []
 
     for (const tagDto of createProductDto.tags) {
-      let tag = await this.tagsService.findOne({
-        where: { epc: tagDto.epc },
-        relations: { products: { saleItems: true } }
-      });
+      // let tag = await this.tagsService.findOne({
+      //   where: { epc: tagDto.epc },
+      //   relations: { products: { saleItems: true } }
+      // });
 
-      if (!tag) {
-        tag = await this.tagsService.create({
-          epc: tagDto.epc,
-          rssi: tagDto.rssi,
-          pl: tagDto.pl,
-          pc: tagDto.pc,
-          createdBy: user,
-        });
-      } else {
-        if (tag.products.length > 0) {
-          for (const product of tag.products) {
-            const soldCount = product.saleItems.reduce((p, c) => p + c.quantity, 0)
-            if (product.quantity > soldCount) {
-              tagsExceptions.push(`selected tag with EPC of "${tagDto.epc}" is used by product with name of "${product.name}"`)
-            }
-          }
-        }
+      // if (!tag) {
+      //   tag = await this.tagsService.create({
+      //     epc: tagDto.epc,
+      //     rssi: tagDto.rssi,
+      //     pl: tagDto.pl,
+      //     pc: tagDto.pc,
+      //     createdBy: user,
+      //   });
+      // } else {
+      //   if (tag.products.length > 0) {
+      //     for (const product of tag.products) {
+      //       const soldCount = product.saleItems.reduce((p, c) => p + c.quantity, 0)
+      //       if (product.quantity > soldCount) {
+      //         tagsExceptions.push(`selected tag with EPC of "${tagDto.epc}" is used by product with name of "${product.name}"`)
+      //       }
+      //     }
+      //   }
+      // }
+
+      const { status: thisTagCanBeUsed, tag, exceptions } = await this.tagsService.fintTagByEPCAndAssessCanBeUsedThisTag(tagDto.epc)
+
+      const thisTag = (thisTagCanBeUsed && !tag) ? (await this.tagsService.create({ epc: tagDto.epc, rssi: tagDto.rssi, pl: tagDto.pl, pc: tagDto.pc, createdBy: user, })) : tag
+      tagsExceptions = [...tagsExceptions, ...exceptions]
+
+      if (thisTag) {
+        tags.push(thisTag);
       }
-
-      tags.push(tag);
     }
 
     if (tagsExceptions.length > 0)
@@ -125,7 +132,7 @@ export class ProductsService {
 
     const qFilterValue = filters['q']
     const weightRangeValue = filters['weightRange']
-    const makingChargeRangeValue = filters['makingChargeRange']
+    const makingChargeSellRangeValue = filters['makingChargeSellRange']
     const profitRangeValue = filters['profitRange']
     const priceRangeValue = filters['priceRange']
 
@@ -161,13 +168,13 @@ export class ProductsService {
             And(Like(`%${qFilterValue}%`), el?.["name"]) :
             Like(`%${qFilterValue}%`),
           ...(!!weightRangeValue ? { weight: And(LessThanOrEqual(weightRangeValue.max), MoreThanOrEqual(weightRangeValue.min)) } : {}),
-          ...(!!makingChargeRangeValue ? { makingCharge: And(LessThanOrEqual(makingChargeRangeValue.max), MoreThanOrEqual(makingChargeRangeValue.min)) } : {}),
+          ...(!!makingChargeSellRangeValue ? { makingChargeSell: And(LessThanOrEqual(makingChargeSellRangeValue.max), MoreThanOrEqual(makingChargeSellRangeValue.min)) } : {}),
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
             // calculateGoldPrice
             id: Raw(() => `
-              :minPrice <= Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10  
-              AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
+              :minPrice <= Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10  
+              AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -184,13 +191,13 @@ export class ProductsService {
             }
           },
           ...(!!weightRangeValue ? { weight: And(LessThanOrEqual(weightRangeValue.max), MoreThanOrEqual(weightRangeValue.min)) } : {}),
-          ...(!!makingChargeRangeValue ? { makingCharge: And(LessThanOrEqual(makingChargeRangeValue.max), MoreThanOrEqual(makingChargeRangeValue.min)) } : {}),
+          ...(!!makingChargeSellRangeValue ? { makingChargeSell: And(LessThanOrEqual(makingChargeSellRangeValue.max), MoreThanOrEqual(makingChargeSellRangeValue.min)) } : {}),
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
             // calculateGoldPrice
             id: Raw(() => `
-              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
-              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingCharge / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -210,20 +217,20 @@ export class ProductsService {
       minWeight,
       maxProfit,
       minProfit,
-      maxMakingCharge,
-      minMakingCharge,
+      maxMakingChargeSell,
+      minMakingChargeSell,
       allProducts
     ] = await Promise.all([
       this.productsRepository.maximum("weight", whereQuery),
       this.productsRepository.minimum("weight", whereQuery),
       this.productsRepository.maximum("profit", whereQuery),
       this.productsRepository.minimum("profit", whereQuery),
-      this.productsRepository.maximum("makingCharge", whereQuery),
-      this.productsRepository.minimum("makingCharge", whereQuery),
+      this.productsRepository.maximum("makingChargeSell", whereQuery),
+      this.productsRepository.minimum("makingChargeSell", whereQuery),
       this.productsRepository.find({
         relations: { saleItems: { invoice: { customer: true } }, tags: true, createdBy: true },
         where: whereQuery,
-        select: { id: true, saleItems: { invoice: { customer: false }, quantity: true }, karat: true, subType: true, profit: true, vat: true, makingCharge: true, accessoriesCharge: true, weight: true, tags: false, createdBy: false },
+        select: { id: true, saleItems: { invoice: { customer: false }, quantity: true }, karat: true, subType: true, profit: true, vat: true, makingChargeSell: true, accessoriesCharge: true, weight: true, tags: false, createdBy: false },
       }),
     ])
 
@@ -233,13 +240,13 @@ export class ProductsService {
       subType: el.subType,
       weight: el.weight,
       profit: el.profit,
-      makingCharge: el.makingCharge,
+      makingChargeSell: el.makingChargeSell,
       vat: el.vat,
       accessoriesCharge: el.accessoriesCharge,
       price: calculateGoldPrice(
         el.karat,
         el.weight,
-        el.makingCharge,
+        el.makingChargeSell,
         el.profit,
         el.vat,
         {
@@ -270,7 +277,7 @@ export class ProductsService {
       ranges: {
         weight: { min: minWeight ?? -1, max: maxWeight ?? -1 },
         profit: { min: minProfit ?? -1, max: maxProfit ?? -1 },
-        makingCharge: { min: minMakingCharge ?? -1, max: maxMakingCharge ?? -1 },
+        makingChargeSell: { min: minMakingChargeSell ?? -1, max: maxMakingChargeSell ?? -1 },
         price: { min: minPrices, max: maxPrices },
       }
     };
@@ -283,13 +290,13 @@ export class ProductsService {
     const maxProfit = await this.productsRepository.minimum("profit")
     const minProfit = await this.productsRepository.minimum("profit")
 
-    const maxMakingCharge = await this.productsRepository.minimum("makingCharge")
-    const minMakingCharge = await this.productsRepository.minimum("makingCharge")
+    const maxMakingChargeSell = await this.productsRepository.minimum("makingChargeSell")
+    const minMakingChargeSell = await this.productsRepository.minimum("makingChargeSell")
 
     return {
       weight: [minWeight, maxWeight],
       profit: [minProfit, maxProfit],
-      makingCharge: [minMakingCharge, maxMakingCharge],
+      makingChargeSell: [minMakingChargeSell, maxMakingChargeSell],
     }
 
   }
@@ -439,37 +446,46 @@ export class ProductsService {
 
     // 4) Handle tags if provided in update
     let tags: Tag[] = product.tags || [];
-    const tagsExceptions: string[] = [];
+    let tagsExceptions: string[] = [];
 
     if (updateProductDto.tags && updateProductDto.tags.length > 0) {
       tags = [];
       for (const tagDto of updateProductDto.tags) {
-        let tag = await this.tagsService.findOne({
-          where: { epc: tagDto.epc },
-          relations: { products: { saleItems: true } },
-        });
+        // let tag = await this.tagsService.findOne({
+        //   where: { epc: tagDto.epc },
+        //   relations: { products: { saleItems: true } },
+        // });
 
-        if (!tag) {
-          tag = await this.tagsService.create({
-            epc: tagDto.epc,
-            rssi: tagDto.rssi,
-            pl: tagDto.pl ?? 0,
-            pc: tagDto.pc ?? 0,
-            createdBy: user,
-          });
-        } else {
-          // Check if tag is already used by another product
-          if (tag.products.length > 0 && !tag.products.some(p => p.id === id)) {
-            for (const p of tag.products) {
-              const pSoldCount = p.saleItems.reduce((p, c) => p + c.quantity, 0);
-              if (p.quantity > pSoldCount) {
-                tagsExceptions.push(`Selected tag with EPC of "${tagDto.epc}" is used by product with name of "${p.name}"`);
-              }
-            }
-          }
+        // if (!tag) {
+        //   tag = await this.tagsService.create({
+        //     epc: tagDto.epc,
+        //     rssi: tagDto.rssi,
+        //     pl: tagDto.pl ?? 0,
+        //     pc: tagDto.pc ?? 0,
+        //     createdBy: user,
+        //   });
+        // } else {
+        //   // Check if tag is already used by another product
+        //   if (tag.products.length > 0 && !tag.products.some(p => p.id === id)) {
+        //     for (const p of tag.products) {
+        //       const pSoldCount = p.saleItems.reduce((p, c) => p + c.quantity, 0);
+        //       if (p.quantity > pSoldCount) {
+        //         tagsExceptions.push(`Selected tag with EPC of "${tagDto.epc}" is used by product with name of "${p.name}"`);
+        //       }
+        //     }
+        //   }
+        // }
+
+        // tags.push(tag);
+        const { status: thisTagCanBeUsed, tag, exceptions } = await this.tagsService.fintTagByEPCAndAssessCanBeUsedThisTag(tagDto.epc)
+
+        const thisTag = (thisTagCanBeUsed && !tag) ? (await this.tagsService.create({ epc: tagDto.epc, rssi: tagDto.rssi, pl: tagDto.pl, pc: tagDto.pc, createdBy: user, })) : tag
+
+        tagsExceptions = [...tagsExceptions, ...exceptions]
+
+        if (thisTag) {
+          tags.push(thisTag);
         }
-
-        tags.push(tag);
       }
 
       if (tagsExceptions.length > 0) {
