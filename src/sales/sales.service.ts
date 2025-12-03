@@ -45,6 +45,7 @@ export class SalesService {
         quantity: it.quantity,
         soldPrice: it.soldPrice,
         discount: it.discount,
+        tariffType: it.tariffType,
         spotPrice: it.spotPrice,
         createdBy: user,
         product: { id: it.productId } as Product,
@@ -59,7 +60,7 @@ export class SalesService {
   async getStats(period: PeriodType) {
     const { start, end } = this.getDateRange(period);
 
-
+    // calculateGoldPrice
     const totalSQL = `
       select 
         count(distinct productID) productsCount, sum(soldItemCount) totalSoldUniqueItem, sum(sumSoldQuantity) totalSoldQuantity,
@@ -106,6 +107,7 @@ export class SalesService {
       ) basetbl
     `
 
+    // calculateGoldPrice
     const groupByTypeSQL = `
       select 
         type,
@@ -154,6 +156,7 @@ export class SalesService {
       group by type
     `
 
+    // calculateGoldPrice
     const groupBySubTypeSQL = `
       select 
         subType,
@@ -352,7 +355,7 @@ export class SalesService {
     const res = await Promise.all(thisInvoiceTags.map(epc => this.tagsService.fintTagByEPCAndAssessCanBeUsedThisTag(epc)))
 
 
-    const tagsExceptions = res.map(item => item.exceptions).flat()
+    const tagsExceptions = res.map(item => item.exceptions).flat().filter(ex => !thisInvoiceProducts.map(p => p.id).includes(ex.product.id))
 
     return {
       status: tagsExceptions.length === 0,

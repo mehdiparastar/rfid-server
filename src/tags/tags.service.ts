@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createSortObject, getByPath, makeSortCondition } from 'src/helperFunctions/createSortObject';
+import { Product } from 'src/products/entities/product.entity';
 import { Cursor } from 'src/products/products.service';
 import { And, FindOneOptions, In, Like, Repository } from 'typeorm';
 import { CreateTagDto } from './dto/create-tag.dto';
@@ -40,7 +41,7 @@ export class TagsService {
   }
 
   async fintTagByEPCAndAssessCanBeUsedThisTag(epc: string) {
-    const exceptions: string[] = []
+    const exceptions: { ex: string, product: Product }[] = []
 
     const tag = await this.tagsRepository.findOne({
       where: { epc: epc },
@@ -54,10 +55,10 @@ export class TagsService {
         for (const product of tag.products) {
           const soldCount = product.saleItems.reduce((p, c) => p + c.quantity, 0)
           if (product.quantity > soldCount) {
-            exceptions.push(`selected tag with EPC of "${epc}" is used by product with name of "${product.name}"`)
+            exceptions.push({ ex: `selected tag with EPC of "${epc}" is used by product with name of "${product.name}"`, product: product })
           }
         }
-        return { requestedEPC: epc, status: exceptions.length === 0, exceptions, tag }
+        return { requestedEPC: epc, status: exceptions.length === 0, exceptions, tag: { ...tag } }
       }
       else {
         return { requestedEPC: epc, status: true, exceptions, tag }

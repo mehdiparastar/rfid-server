@@ -6,6 +6,7 @@ import { GoldCurrencyService } from 'src/gold-currency/gold-currency.service';
 import { calculateGoldPrice } from 'src/helperFunctions/calculateGoldPrice';
 import { createSortObject, getByPath, makeSortCondition } from 'src/helperFunctions/createSortObject';
 import { uploads_root } from 'src/helperFunctions/paths';
+import { ItariffENUM } from 'src/sales/entities/sale-item.entity';
 import { SalesService } from 'src/sales/sales.service';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { TagsService } from 'src/tags/tags.service';
@@ -28,6 +29,7 @@ export interface GetAllProductsOptions {
   sortField: string;
   sortDirection: 'asc' | 'desc';
   filters: Record<string, any>;
+  tariffType: ItariffENUM
 }
 
 @Injectable()
@@ -50,7 +52,7 @@ export class ProductsService {
 
     // Handle tags: find or create based on unique EPC.
     const tags: Tag[] = [];
-    let tagsExceptions: string[] = []
+    let tagsExceptions: { ex: string, product: Product }[] = []
 
     for (const tagDto of createProductDto.tags) {
       // let tag = await this.tagsService.findOne({
@@ -128,6 +130,7 @@ export class ProductsService {
     sortField,
     sortDirection,
     filters,
+    tariffType,
   }: GetAllProductsOptions) {
 
     const qFilterValue = filters['q']
@@ -201,6 +204,25 @@ export class ProductsService {
             `, { minPrice, maxPrice }),
           } : {}),
         })),
+      ...sortCondition
+        .map(el => ({
+          ...el,
+          tags: {
+            epc: el?.["tags"]?.["epc"] ?
+              And(Like(`%${qFilterValue}%`), el?.["tags"]?.["epc"]) :
+              Like(`%${qFilterValue}%`)
+          },
+          ...(!!weightRangeValue ? { weight: And(LessThanOrEqual(weightRangeValue.max), MoreThanOrEqual(weightRangeValue.min)) } : {}),
+          ...(!!makingChargeSellRangeValue ? { makingChargeSell: And(LessThanOrEqual(makingChargeSellRangeValue.max), MoreThanOrEqual(makingChargeSellRangeValue.min)) } : {}),
+          ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
+          ...(!!priceRangeValue ? {
+            // calculateGoldPrice
+            id: Raw(() => `
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
+            `, { minPrice, maxPrice }),
+          } : {}),
+        })),
     ]
 
     const [items, total] = await this.productsRepository.findAndCount(
@@ -253,8 +275,9 @@ export class ProductsService {
           price: 10 * (currentCurrency.find(it => el.subType === it.symbol)?.price || 0),
           karat: currentCurrency.find(it => el.subType === it.symbol)?.karat || 0,
         },
-        el.accessoriesCharge
-      ) || 0
+        el.accessoriesCharge,
+        0
+      )?.[tariffType] || 0
     })).sort((a, b) => a.price - b.price)
 
     const minPrices = [prices[0] ?? -1, prices[1] ?? -1]
@@ -433,20 +456,21 @@ export class ProductsService {
     const isOnlyIncreasedQuantity = (updateProductDto && updateProductDto.quantity && updateProductDto.quantity > product.quantity && Object.keys(updateProductDto).length === 1) || false
     const isOnlyChangeInventoryItem = (updateProductDto && updateProductDto.inventoryItem && Object.keys(updateProductDto).length === 1) || false
     const isOnlyBothChangeInventoryItemAndIncreasedQuantity = (updateProductDto && updateProductDto.inventoryItem && updateProductDto.quantity && updateProductDto.quantity > product.quantity && Object.keys(updateProductDto).length === 2 && Object.keys(updateProductDto).includes("quantity") && Object.keys(updateProductDto).includes("inventoryItem")) || false
+    const isOnlyTagChanged = updateProductDto && updateProductDto.tags && Object.keys(updateProductDto).length === 1
 
     // 3) Referential integrity: block if sold (has sale items) and decrease quantity
     if (updateProductDto && updateProductDto.quantity && (product.quantity > updateProductDto?.quantity)) {
       throw new BadRequestException('Cannot update: product quantity only can be increased.');
     }
     const soldCount = product.saleItems.reduce((p, c) => p + c.quantity, 0);
-    if (soldCount > 0 && !(isOnlyIncreasedQuantity || isOnlyChangeInventoryItem || isOnlyBothChangeInventoryItemAndIncreasedQuantity)) {
+    if (soldCount > 0 && !(isOnlyIncreasedQuantity || isOnlyChangeInventoryItem || isOnlyBothChangeInventoryItemAndIncreasedQuantity || isOnlyTagChanged)) {
       throw new BadRequestException('Cannot update: product has related sales.');
     }
 
 
     // 4) Handle tags if provided in update
     let tags: Tag[] = product.tags || [];
-    let tagsExceptions: string[] = [];
+    let tagsExceptions: { ex: string, product: Product }[] = [];
 
     if (updateProductDto.tags && updateProductDto.tags.length > 0) {
       tags = [];
@@ -481,7 +505,7 @@ export class ProductsService {
 
         const thisTag = (thisTagCanBeUsed && !tag) ? (await this.tagsService.create({ epc: tagDto.epc, rssi: tagDto.rssi, pl: tagDto.pl, pc: tagDto.pc, createdBy: user, })) : tag
 
-        tagsExceptions = [...tagsExceptions, ...exceptions]
+        tagsExceptions = [...tagsExceptions, ...exceptions.filter(ex => ex.product.id !== product.id)]
 
         if (thisTag) {
           tags.push(thisTag);
@@ -489,13 +513,13 @@ export class ProductsService {
       }
 
       if (tagsExceptions.length > 0) {
-        throw new NotAcceptableException(tagsExceptions.join('\n'));
+        throw new NotAcceptableException(tagsExceptions.map(ex => ex.ex).join('\n'));
       }
       updateProductDto.tags = tags
     }
 
     // 5) Update scalar fields (only if provided)
-    Object.assign(product, updateProductDto);
+    Object.assign(product, { tags: updateProductDto.tags?.map(t => product.tags.find(el => el.epc === t.epc) ? product.tags.find(el => el.epc === t.epc) : t) });
 
     // 6) Handle photos if new files provided
     if (files.photos && files.photos.length > 0) {

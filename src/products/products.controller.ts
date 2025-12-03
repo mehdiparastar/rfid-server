@@ -37,7 +37,7 @@ export class ProductsController {
 
   @Get('all')
   async getAllProducts(@Query() query: GetProductsDto) {
-    const { limit = 20, sort = 'createdAt:desc', filters = {}, cursor = null } = query;
+    const { limit = 20, sort = 'createdAt:desc', filters = {}, cursor = null, tariffType } = query;
     const [sortField, sortDirection] = sort.split(':');
     // const parsedFilters = (filters && typeof filters === 'string') ? JSON.parse(filters) : {};
 
@@ -66,6 +66,7 @@ export class ProductsController {
       sortField,
       sortDirection: sortDirection === 'asc' ? 'asc' : 'desc',
       filters: parsedFilters,
+      tariffType
     });
   }
 

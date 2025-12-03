@@ -3,6 +3,13 @@ import { User } from "src/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Invoice } from "./invoice.entity";
 
+export type ItariffType = "CT" | "UT"
+
+export enum ItariffENUM {
+    CT = "CT",
+    UT = "UT",
+}
+
 @Entity('sale_items')
 export class SaleItem {
     @PrimaryGeneratedColumn()
@@ -18,6 +25,14 @@ export class SaleItem {
 
     @Column('int', { nullable: false })
     quantity: number;
+
+    @Column({
+        type: 'enum',
+        enum: ItariffENUM,
+        nullable: false,
+        default: ItariffENUM.CT
+    })
+    tariffType: ItariffType; // only "CT" or "UT"
 
     @Column('decimal', { precision: 18, scale: 2, nullable: false })
     spotPrice: number;  // Spot price at the time of sale

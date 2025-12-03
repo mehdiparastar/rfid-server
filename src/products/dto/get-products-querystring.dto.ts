@@ -1,5 +1,6 @@
 // dto/get-products.dto.ts
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ItariffENUM } from 'src/sales/entities/sale-item.entity';
 
 export class GetProductsDto {
     @IsOptional()
@@ -13,6 +14,10 @@ export class GetProductsDto {
     @IsOptional()
     @IsString()
     filters?: string;
+
+    @IsNotEmpty()
+    @IsEnum(ItariffENUM)
+    tariffType: ItariffENUM;
 
     @IsOptional()
     @IsString()
