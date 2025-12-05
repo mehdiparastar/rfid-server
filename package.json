@@ -45,6 +45,7 @@
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
     "cross-env": "^10.0.0",
+    "jalaali-js": "^1.2.8",
     "multer": "^2.0.2",
     "mysql2": "^3.14.4",
     "passport-jwt": "^4.0.1",

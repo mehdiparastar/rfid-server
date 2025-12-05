@@ -10,6 +10,8 @@ export enum ItariffENUM {
     UT = "UT",
 }
 
+export const conventionalTariffPercent = 2
+
 @Entity('sale_items')
 export class SaleItem {
     @PrimaryGeneratedColumn()

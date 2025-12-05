@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Cursor } from 'src/products/products.service';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
+import { GetCustomersDto } from './dto/get-customers-querystring.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @Controller('customers')
@@ -36,5 +38,39 @@ export class CustomersController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.customersService.remove(+id);
+  }
+
+  @Get('find/all')
+  async getAllCustomers(@Query() query: GetCustomersDto) {
+    const { limit = 20, sort = 'createdAt:desc', filters = {}, cursor = null } = query;
+    const [sortField, sortDirection] = sort.split(':');
+    // const parsedFilters = (filters && typeof filters === 'string') ? JSON.parse(filters) : {};
+
+    // Parse filters JSON string
+    let parsedFilters: Record<string, any> = {};
+    try {
+      parsedFilters = (filters && typeof filters === 'string') ? JSON.parse(filters) : {};
+    } catch (e) {
+      throw new Error('Invalid filters format');
+    }
+
+    // Parse cursor JSON string
+    let parsedCursor: Cursor | null = null;
+    if (cursor) {
+      try {
+        parsedCursor = JSON.parse(cursor) as Cursor;
+        parsedCursor.createdAt = new Date(parsedCursor.createdAt);
+      } catch (e) {
+        throw new Error('Invalid cursor format');
+      }
+    }
+
+    return this.customersService.getAllCustomers({
+      cursor: parsedCursor,
+      limit,
+      sortField,
+      sortDirection: sortDirection === 'asc' ? 'asc' : 'desc',
+      filters: parsedFilters,
+    });
   }
 }

@@ -6,7 +6,7 @@ import { GoldCurrencyService } from 'src/gold-currency/gold-currency.service';
 import { calculateGoldPrice } from 'src/helperFunctions/calculateGoldPrice';
 import { createSortObject, getByPath, makeSortCondition } from 'src/helperFunctions/createSortObject';
 import { uploads_root } from 'src/helperFunctions/paths';
-import { ItariffENUM } from 'src/sales/entities/sale-item.entity';
+import { conventionalTariffPercent, ItariffENUM } from 'src/sales/entities/sale-item.entity';
 import { SalesService } from 'src/sales/sales.service';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { TagsService } from 'src/tags/tags.service';
@@ -175,9 +175,12 @@ export class ProductsService {
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
             // calculateGoldPrice
-            id: Raw(() => `
-              :minPrice <= Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10  
+            id: Raw(() => tariffType === "UT" ? `
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (((1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100))) - (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
               AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
+            `: `
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (${conventionalTariffPercent} / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (2 / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -198,9 +201,12 @@ export class ProductsService {
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
             // calculateGoldPrice
-            id: Raw(() => `
-              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
-              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
+            id: Raw(() => tariffType === "UT" ? `
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (((1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100))) - (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
+            `: `
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (${conventionalTariffPercent} / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (2 / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
@@ -217,9 +223,12 @@ export class ProductsService {
           ...(!!profitRangeValue ? { profit: And(LessThanOrEqual(profitRangeValue.max), MoreThanOrEqual(profitRangeValue.min)) } : {}),
           ...(!!priceRangeValue ? {
             // calculateGoldPrice
-            id: Raw(() => `
-              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
-              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
+            id: Raw(() => tariffType === "UT" ? `
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (((1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100))) - (Product.vat / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (Product.vat / 100)) * ${currencyCase} * 10 <= :maxPrice
+            `: `
+              :minPrice <= (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (${conventionalTariffPercent} / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge
+              AND (Product.karat / ${karatCase} * Product.weight * (1 + (Product.makingChargeSell / 100)) * (1 + (Product.profit / 100)) * (1 + (2 / 100)) * ${currencyCase} * 10) + Product.accessoriesCharge <= :maxPrice
             `, { minPrice, maxPrice }),
           } : {}),
         })),
